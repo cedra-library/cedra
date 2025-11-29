@@ -98,10 +98,11 @@ public:
     Generator<DateType> BuisnessDays(Generator<DateType> dates, const std::string& jur,
                                      Adjustment adjustment = Adjustment::kFollowing) const;
 
+    DateType AdjustWorkDay(const std::string& jur, DateType date, Adjustment adj) const;
+
 private:
     const std::set<DateType>& JurisdictionHolidays(const std::string& jur) const;
 
-    DateType AdjustWorkDay(const std::string& jur, DateType date, Adjustment adj) const;
 private:
     StorageType storage;
 };

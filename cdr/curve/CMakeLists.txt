@@ -4,6 +4,7 @@ cdr_cpp_library(
     "curve.h"
     "interpolation/linear.h"
   SRCS
+    "curve.cc"
     "interpolation/linear.cc"
   DEPS
     cdr::calendar
