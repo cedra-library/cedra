@@ -9,3 +9,12 @@ cdr_cpp_library(
   DEPS
     cdr::calendar
 )
+
+cdr_cpp_test(
+  NAME curve_test
+  SRCS
+    "curve_test.cc"
+  DEPS
+    cdr::curve
+    GTest::gtest_main
+)

@@ -83,7 +83,8 @@ public:
     [[nodiscard]] bool PayFix() const noexcept {
         return paying_fix_;
     }
-    //
+
+
     // ChronologicalIterator cbegin() const {
     //     return ChronologicalIterator(payment_periods_.data(), );
     // }

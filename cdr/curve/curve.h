@@ -18,7 +18,7 @@ public:
     Curve() = default;
 
     template <std::input_iterator It>
-    Curve(It begin, It end, const HolidayStorage& hs) {
+    Curve(It begin, It end) {
         auto it = points_.begin();
         for (; begin != end; ++begin) {
             const auto& [date, value] = *begin;
