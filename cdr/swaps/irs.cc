@@ -9,60 +9,64 @@ namespace cdr {
 
 [[nodiscard]] IrsContract IrsBuilder::Build(const HolidayStorage& hs, const std::string& jur, Adjustment adj) {
 
-    CDR_CHECK(maturity_date_.has_value()) << "maturity_date must be defined";
-    CDR_CHECK(effective_date_.has_value()) << "effective_date must be defined";
-    CDR_CHECK(cpn_.has_value()) << "coupon must be defined";
-    CDR_CHECK(notional_.has_value()) << "notional must be defined";
-    CDR_CHECK(paying_fix_.has_value()) << "paying_fix must be defined";
+    CDR_CHECK(maturity_date_.has_value()) << "must be defined";
+    CDR_CHECK(settlement_date_.has_value()) << "must be defined";
+    CDR_CHECK(cpn_.has_value()) << "must be defined";
+    CDR_CHECK(notional_.has_value()) << "must be defined";
+    CDR_CHECK(paying_fix_.has_value()) << "must be defined";
+    CDR_CHECK(fixed_freq_.has_value()) << "must be defined";
+    CDR_CHECK(float_freq_.has_value()) << "must be defined";
 
     static constexpr u32 kRandomReservationConstant = 10;
     IrsContract result(cpn_.value(), paying_fix_.value());
 
     std::vector<IrsPaymentPeriod> sched;
     sched.reserve(kRandomReservationConstant);
-    auto period = Period(effective_date_.value(), maturity_date_.value());
-    auto compare_dates = [&sched](u32 left_idx, u32 right_idx) {
+    auto period = Period(settlement_date_.value(), maturity_date_.value());
+    auto compare_dates = [&sched](const u32 left_idx, const u32 right_idx) {
         return sched[left_idx].Since() > sched[right_idx].Since();
     };
     std::priority_queue<u32, std::vector<u32>, decltype(compare_dates)> chronological_order(compare_dates);
 
-    f64 fixed_payment = 0.0; // TODO: compute
-    u8 idx = 0;
+    f64 fixed_payment = cpn_->Apply(notional_.value());
+    u32 idx = 0;
 
     std::optional<DateType> since = std::nullopt;
-    std::optional<DateType> due = std::nullopt;
+    std::optional<DateType> until = std::nullopt;
 
     for (DateType date : hs.BuisnessDays(period.WithFrequency(fixed_freq_.value()), jur, adj)) {
-        since = std::exchange(due, date);
-
+        since = std::exchange(until, date);
         if (!since) [[unlikely]] {
             continue;
         }
 
-        sched.emplace_back(Period{since.value(), due.value()}, fixed_payment);
+        auto payment_period = Period{since.value(), std::min(until.value(), maturity_date_.value())};
+        sched.emplace_back(payment_period, fixed_payment * DayCountFraction(payment_period));
         chronological_order.push(idx++);
+
+        if (payment_period.Until() == maturity_date_) {
+            break;
+        }
     }
-    since = std::exchange(due, effective_date_);
-    sched.emplace_back(Period{since.value(), due.value()}, fixed_payment);
-    chronological_order.push(idx++);
 
     since = std::nullopt;
-    due = std::nullopt;
+    until = std::nullopt;
     u64 fixed_last = sched.size();
 
     for (DateType date : hs.BuisnessDays(period.WithFrequency(float_freq_.value()), jur, adj)) {
-        since = std::exchange(due, date);
-
+        since = std::exchange(until, date);
         if (!since) [[unlikely]] {
             continue;
         }
 
-        sched.emplace_back(Period{since.value(), due.value()});
+        auto payment_period = Period{since.value(), std::min(until.value(), maturity_date_.value())};
+        sched.emplace_back(payment_period);
         chronological_order.push(idx++);
+
+        if (payment_period.Until() == maturity_date_) {
+            break;
+        }
     }
-    since = std::exchange(due, effective_date_);
-    sched.emplace_back(Period{since.value(), due.value()});
-    chronological_order.push(idx++);
 
     u32 last = IrsPaymentPeriod::kNotInitialized;
     u32 curr = IrsPaymentPeriod::kNotInitialized;

@@ -26,13 +26,13 @@ TEST(Basic, Option) {
     ;
 
     cdr::IrsContract irs = cdr::IrsBuilder()
-      .Coupon(cdr::Percent::FromPercentage(0.24))
+      .Coupon(cdr::Percent::FromFraction(0.24))
       .PayFix(true)
       .Notion(2'000'000)
       .FixedFreq(cdr::Freq::kQuarterly)
       .FloatFreq(cdr::Freq::kAnnualy)
       .MaturityDate(day(1) / January / year(2025))
-      .EffectiveDate(day(1) / January / year(2023))
+      .SettlementDate(day(1) / January / year(2023))
       .Build(holiday_storage, "RUS")
     ;
 

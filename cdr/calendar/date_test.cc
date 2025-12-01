@@ -30,3 +30,8 @@ TEST(TestPeriod, sanity) {
         day(10) / January / 2025
     }));
 }
+
+TEST(TestPeriod, DCFractions) {
+
+}
+

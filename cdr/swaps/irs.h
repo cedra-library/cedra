@@ -1,5 +1,4 @@
 #pragma once
-#pragma once
 
 #include <limits>
 #include <optional>
@@ -50,7 +49,7 @@ public:
         payment_ = payment;
     }
 
-    const std::optional<f64> Payment() const noexcept {
+    [[nodiscard]] std::optional<f64> Payment() const noexcept {
         return payment_;
     }
 
@@ -106,13 +105,18 @@ public:
         return *this;
     }
 
-    [[maybe_unused]] IrsBuilder& EffectiveDate(const DateType& ed) {
-        effective_date_ = ed;
+    [[maybe_unused]] IrsBuilder& SettlementDate(const DateType& ed) {
+        settlement_date_ = ed;
         return *this;
     }
 
     [[maybe_unused]] IrsBuilder& MaturityDate(const DateType& md) {
         maturity_date_ = md;
+        return *this;
+    }
+
+    [[maybe_unused]] IrsBuilder& EffectiveDate(const DateType& dt) {
+        effective_date_ = dt;
         return *this;
     }
 
@@ -140,9 +144,9 @@ public:
                                     Adjustment adj = Adjustment::kFollowing);
 
 
-
 private:
     std::optional<DateType> maturity_date_;
+    std::optional<DateType> settlement_date_;
     std::optional<DateType> effective_date_;
     std::optional<Freq> fixed_freq_;
     std::optional<Freq> float_freq_;

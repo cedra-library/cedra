@@ -3,8 +3,8 @@
 #include <cdr/calendar/date.h>
 #include <cdr/calendar/freq.h>
 
-#include <algorithm>
 #include <concepts>
+#include <algorithm>
 #include <iterator>
 #include <set>
 #include <string>
