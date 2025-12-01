@@ -4,5 +4,9 @@ cdr_cpp_library(
     "generator.h"
     "check.h"
     "internal/check_impl.h"
+  SRCS
+    "internal/check_impl.cc"
+  DEPS
+    cdr::types
   PUBLIC
 )

@@ -2,26 +2,29 @@
 
 #include <queue>
 #include <utility>
-#include "cdr/calendar/date.h"
+#include <cdr/base/check.h>
+#include <cdr/calendar/date.h>
 
 namespace cdr {
 
 [[nodiscard]] IrsContract IrsBuilder::Build(const HolidayStorage& hs, const std::string& jur, Adjustment adj) {
-    assert(maturity_date_.has_value());
-    assert(effective_date_.has_value());
-    assert(cpn_.has_value());
-    assert(notional_.has_value());
-    assert(paying_fix_.has_value());
 
+    CDR_CHECK(maturity_date_.has_value()) << "maturity_date must be defined";
+    CDR_CHECK(effective_date_.has_value()) << "effective_date must be defined";
+    CDR_CHECK(cpn_.has_value()) << "coupon must be defined";
+    CDR_CHECK(notional_.has_value()) << "notional must be defined";
+    CDR_CHECK(paying_fix_.has_value()) << "paying_fix must be defined";
+
+    static constexpr u32 kRandomReservationConstant = 10;
     IrsContract result(cpn_.value(), paying_fix_.value());
-    std::vector<IrsPaymentPeriod> sched;
-    sched.reserve(10); // TODO: small vector or precompute payments num
-    auto period = Period(effective_date_.value(), maturity_date_.value());
 
-    auto compare_dates = [&sched](u8 left_idx, u8 right_idx) {
+    std::vector<IrsPaymentPeriod> sched;
+    sched.reserve(kRandomReservationConstant);
+    auto period = Period(effective_date_.value(), maturity_date_.value());
+    auto compare_dates = [&sched](u32 left_idx, u32 right_idx) {
         return sched[left_idx].Since() > sched[right_idx].Since();
     };
-    std::priority_queue<u8, std::vector<u8>, decltype(compare_dates)> chronological_order(compare_dates);
+    std::priority_queue<u32, std::vector<u32>, decltype(compare_dates)> chronological_order(compare_dates);
 
     f64 fixed_payment = 0.0; // TODO: compute
     u8 idx = 0;
