@@ -144,6 +144,7 @@ public:
                                     Adjustment adj = Adjustment::kFollowing);
 
 
+    void Reset();
 private:
     std::optional<DateType> maturity_date_;
     std::optional<DateType> settlement_date_;

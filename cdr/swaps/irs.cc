@@ -90,7 +90,19 @@ namespace cdr {
     result.fixed_leg_ = result.payment_periods_.data();
     result.float_leg_ = result.payment_periods_.data() + fixed_last;
 
+    Reset();
     return result;
+}
+
+void IrsBuilder::Reset() {
+    maturity_date_ = std::nullopt;
+    settlement_date_ = std::nullopt;
+    effective_date_ = std::nullopt;
+    fixed_freq_ = std::nullopt;
+    float_freq_ = std::nullopt;
+    cpn_ = std::nullopt;
+    notional_ = std::nullopt;
+    paying_fix_ = std::nullopt;
 }
 
 } // namespace cdr
