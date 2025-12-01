@@ -1,33 +1,37 @@
 #pragma once
+#pragma once
 
+#include <limits>
+#include <optional>
+#include <cdr/types/percent.h>
 #include <cdr/calendar/date.h>
-#include <cdr/calendar/freq.h>
 #include <cdr/calendar/holiday_storage.h>
-#include <cdr/types/types.h>
-
-#include <span>
 
 namespace cdr {
 
 class IrsBuilder;
 
-class PaymentPeriodEntry {
+class IrsPaymentPeriod final {
 public:
-    static constexpr u8 kNotInitialized = 255;
+    static constexpr u32 kNotInitialized = std::numeric_limits<u32>::max();
 
-public:
     friend class IrsBuilder;
-    friend class IrsContract;
 
-    explicit PaymentPeriodEntry(const DateType& date, const std::optional<f64>& payment = std::nullopt)
-        : date_(date)
+public:
+
+    explicit IrsPaymentPeriod(const Period& bounds, const std::optional<f64>& payment = std::nullopt)
+        : bounds_(bounds)
         , payment_(payment)
         , chrono_prev_idx_(kNotInitialized)
         , chrono_next_idx_(kNotInitialized)
     {}
 
-    [[nodiscard]] const DateType& Date() const noexcept {
-        return date_;
+    [[nodiscard]] const DateType& Since() const noexcept {
+        return bounds_.Since();
+    }
+
+    [[nodiscard]] const DateType& Until() const noexcept {
+        return bounds_.Until();
     }
 
     [[nodiscard]] bool ChronoFirstPayment() const noexcept {
@@ -42,37 +46,31 @@ public:
         return payment_.has_value();
     }
 
+    void SetPayment(f64 payment) noexcept {
+        payment_ = payment;
+    }
+
+    const std::optional<f64> Payment() const noexcept {
+        return payment_;
+    }
+
 private:
-    DateType date_;
+    Period bounds_;
     std::optional<f64> payment_;
-    u8 chrono_prev_idx_;
-    u8 chrono_next_idx_;
+    u32 chrono_prev_idx_;
+    u32 chrono_next_idx_;
 };
+
 
 class IrsContract final {
 public:
-
-    class ChronologicalIterator final {
-    public:
-
-        ChronologicalIterator(PaymentPeriodEntry* buffer, u8 start_idx)
-            : payment_periods_(buffer)
-            , current_idx_(start_idx)
-        {}
-
-    private:
-        PaymentPeriodEntry* payment_periods_;
-        u8 current_idx_;
-    };
-
-public:
     friend class IrsBuilder;
 
-    [[nodiscard]] std::span<const PaymentPeriodEntry> FixedLeg() const noexcept {
+    [[nodiscard]] std::span<const IrsPaymentPeriod> FixedLeg() const noexcept {
         return {fixed_leg_, float_leg_};
     }
 
-    [[nodiscard]] std::span<const PaymentPeriodEntry> FloatLeg() const noexcept {
+    [[nodiscard]] std::span<const IrsPaymentPeriod> FloatLeg() const noexcept {
         return {float_leg_, payment_periods_.end().base()};
     }
 
@@ -84,11 +82,6 @@ public:
         return paying_fix_;
     }
 
-
-    // ChronologicalIterator cbegin() const {
-    //     return ChronologicalIterator(payment_periods_.data(), );
-    // }
-
 private:
 
     IrsContract(Percent coupon, bool paying_fix)
@@ -97,12 +90,12 @@ private:
     {}
 
 private:
-    std::vector<PaymentPeriodEntry> payment_periods_;
-    PaymentPeriodEntry* fixed_leg_ = nullptr;
-    PaymentPeriodEntry* float_leg_ = nullptr;
+    std::vector<IrsPaymentPeriod> payment_periods_;
+    IrsPaymentPeriod* fixed_leg_ = nullptr;
+    IrsPaymentPeriod* float_leg_ = nullptr;
     Percent coupon_;
-    u8 chrono_start_idx_ = 0;
-    u8 chrono_last_idx_ = 0;
+    u32 chrono_start_idx_ = 0;
+    u32 chrono_last_idx_ = 0;
     bool paying_fix_ = false;
 };
 
@@ -146,6 +139,8 @@ public:
     [[nodiscard]] IrsContract Build(const HolidayStorage& hs, const std::string& jur,
                                     Adjustment adj = Adjustment::kFollowing);
 
+
+
 private:
     std::optional<DateType> maturity_date_;
     std::optional<DateType> effective_date_;
@@ -156,4 +151,5 @@ private:
     std::optional<bool> paying_fix_;
 };
 
-}  // namespace cdr
+} // namespace cdr
+

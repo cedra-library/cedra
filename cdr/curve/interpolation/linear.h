@@ -9,8 +9,8 @@ struct Linear {
 public:
     static constexpr bool kStatefulImplementation = false;
 
-    static Percent Interpolate(const Curve::PointsContainer& points, 
-                               const DateType& date, 
+    static Percent Interpolate(const Curve::PointsContainer& points,
+                               const DateType& date,
                                const HolidayStorage& hs,
                                const std::string& jur);
 

@@ -5,7 +5,7 @@ cdr_cpp_library(
     DEPS
       cdr::types
       cdr::calendar
-      cdr::generator
+      cdr::base
     PUBLIC
 )
 

@@ -6,6 +6,7 @@
 #include <cdr/calendar/freq.h>
 #include <cdr/calendar/holiday_storage.h>
 
+#include <functional>
 #include <map>
 #include <tuple>
 
@@ -58,6 +59,13 @@ public:
         } else {
             return Interpolation::Interpolate(points_, date, std::forward<Args>(args)...);
         }
+    }
+
+
+    template <typename Interpolation, typename Transformation, typename... Args>
+    [[nodiscard]] inline decltype(auto) InterpolatedTransformed(DateType dt, Transformation&& transform, Args&&... args) {
+        Percent interpolated_value = Interpolated<Interpolation>(dt, std::forward<Args>(args)...);
+        return std::invoke(std::forward<Transformation>(transform), interpolated_value);
     }
 
 private:

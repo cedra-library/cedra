@@ -40,6 +40,9 @@ inline constexpr u32 DaysTillTheEndOfYear(const DateType& date) {
 
 DateType NextYearBeginnning(const DateType& date);
 
+constexpr struct EternityBeforeType {} EternityBefore;
+constexpr struct EternityAfterType {} EternityAfter;
+
 class Period {
 public:
     using DiffType = i32;
@@ -81,9 +84,20 @@ public:
     bool SameYear() const noexcept {
         return Since().year() == Until().year();
     }
+
+
 private:
     DateType since;
     DateType until;
 };
+
+
+enum class DcConvention {
+    kAct360,
+    kAct365,
+    kActActISDA,
+};
+
+f64 DayCountFraction(const Period& period, DcConvention method = DcConvention::kActActISDA);
 
 }  // namespace cdr

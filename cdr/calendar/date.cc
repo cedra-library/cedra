@@ -128,4 +128,17 @@ f64 Period::ActActISDA() const {
     return leap_days / 366.0 + non_leap_days / 365.0;
 }
 
+f64 DayCountFraction(const Period& period, DcConvention method) {
+    switch(method) {
+    case DcConvention::kActActISDA:
+        return period.ActActISDA();
+    case DcConvention::kAct360:
+        return period.Act360();
+    case DcConvention::kAct365:
+        return period.Act365();
+    default:
+        throw std::logic_error("DcConvention is not supported!");
+    }
+}
+
 } // namespace cdr
