@@ -44,8 +44,9 @@ void AddMonths(DateType& ymd, unsigned months) {
     }
 }
 
-DateType NextYearBeginnning(const DateType& date) {
-    return date.year()++/1/1;
+DateType NextYearBeginning(const DateType& date) {
+    auto next_year = static_cast<i32>(date.year());
+    return chrono::year(++next_year)/1/1;
 }
 
 Generator<DateType> Period::WithFrequency(Freq freq) const {
@@ -99,7 +100,7 @@ Period::Period(const DateType& since, const DateType& until)
 
 f64 Period::ActActISDA() const {
     if (SameYear()) {
-        return static_cast<f64>(Days()) / DaysInYear(since);
+        return static_cast<f64>(Days()) / static_cast<f64>(DaysInYear(since));
     }
 
     f64 leap_days = 0;
@@ -107,7 +108,7 @@ f64 Period::ActActISDA() const {
 
     DateType tmp = since;
     while (true) {
-        if (tmp > until) break;
+        if (tmp >= until) break;
 
         u32 difference = 0;
         if (tmp.year() + chrono::years(1) > until.year()) {
@@ -122,10 +123,23 @@ f64 Period::ActActISDA() const {
             non_leap_days += difference;
         }
 
-        tmp = NextYearBeginnning(tmp);
+        tmp = NextYearBeginning(tmp);
     }
 
     return leap_days / 366.0 + non_leap_days / 365.0;
+}
+
+f64 DayCountFraction(const Period& period, DcConvention method) {
+    switch(method) {
+    case DcConvention::kActActISDA:
+        return period.ActActISDA();
+    case DcConvention::kAct360:
+        return period.Act360();
+    case DcConvention::kAct365:
+        return period.Act365();
+    default:
+        throw std::logic_error("DcConvention is not supported!");
+    }
 }
 
 } // namespace cdr

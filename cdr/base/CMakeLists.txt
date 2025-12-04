@@ -1,5 +1,12 @@
 cdr_cpp_library(
-    NAME generator
-    HDRS "generator.h"
-    PUBLIC
+  NAME base
+  HDRS
+    "generator.h"
+    "check.h"
+    "internal/check_impl.h"
+  SRCS
+    "internal/check_impl.cc"
+  DEPS
+    cdr::types
+  PUBLIC
 )

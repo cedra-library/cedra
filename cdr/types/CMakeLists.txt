@@ -1,10 +1,12 @@
 cdr_cpp_library(
-    NAME types
-    HDRS
-      "concepts.h"
-      "percent.h"
-      "integers.h"
-      "floats.h"
-      "types.h"
-    PUBLIC
+  NAME types
+  HDRS
+    "concepts.h"
+    "percent.h"
+    "integers.h"
+    "floats.h"
+    "types.h"
+  SRCS
+    "percent.cc"
+  PUBLIC
 )

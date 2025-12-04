@@ -11,10 +11,10 @@ enum class Freq {
 };
 
 enum class Adjustment {
-    kFollowing,          // Следующий рабочий день
-    kPreceding,          // Предыдущий рабочий день
-    kModifiedFollowing,  // Модифицированный следующий рабочий день
-    kUnadjusted          // Без подстройки (используется для генератора)
+    kFollowing,                     // Следующий рабочий день
+    kPreceding,                     // Предыдущий рабочий день
+    kModifiedFollowing,             // Модифицированный следующий рабочий день
+    kUnadjusted,                    // Без подстройки (используется для генератора)
 };
 
 }  // namespace cdr

@@ -3,13 +3,16 @@
 #include <cdr/calendar/date.h>
 #include <cdr/types/integers.h>
 #include <cdr/types/percent.h>
+#include <cdr/calendar/freq.h>
+#include <cdr/calendar/holiday_storage.h>
 
+#include <functional>
 #include <map>
 #include <tuple>
 
 namespace cdr {
 
-class Curve final {
+class [[nodiscard]] Curve final {
 public:
     using PointsContainer = std::map<DateType, Percent>;
 public:
@@ -33,17 +36,12 @@ public:
         Curve* parent_;
     };
 
-    CurveEasyInit StaticInit() {
-        return CurveEasyInit{this};
-    }
+    CurveEasyInit StaticInit();
 
-    void Clear() {
-        points_.clear();
-    }
+    void Clear();
 
     template <typename Interpolation, typename... Args>
     [[nodiscard]] Percent Interpolated(DateType date, Args&&... args) {
-
         if constexpr (Interpolation::kStatefulImplementation) {
             auto args_tuple = std::forward_as_tuple(std::forward<Args>(args)...);
 
@@ -63,10 +61,16 @@ public:
         }
     }
 
-private:
-    void Insert(DateType when, Percent value) {
-        points_[when] = value;
+
+    template <typename Interpolation, typename Transformation, typename... Args>
+    [[nodiscard]] inline decltype(auto) InterpolatedTransformed(DateType dt, Transformation&& transform, Args&&... args) {
+        Percent interpolated_value = Interpolated<Interpolation>(dt, std::forward<Args>(args)...);
+        return std::invoke(std::forward<Transformation>(transform), interpolated_value);
     }
+
+private:
+
+    void Insert(DateType when, Percent value);
 
 private:
     PointsContainer points_;

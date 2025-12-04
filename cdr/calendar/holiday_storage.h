@@ -3,8 +3,8 @@
 #include <cdr/calendar/date.h>
 #include <cdr/calendar/freq.h>
 
-#include <algorithm>
 #include <concepts>
+#include <algorithm>
 #include <iterator>
 #include <set>
 #include <string>
@@ -98,10 +98,11 @@ public:
     Generator<DateType> BuisnessDays(Generator<DateType> dates, const std::string& jur,
                                      Adjustment adjustment = Adjustment::kFollowing) const;
 
+    DateType AdjustWorkDay(const std::string& jur, DateType date, Adjustment adj) const;
+
 private:
     const std::set<DateType>& JurisdictionHolidays(const std::string& jur) const;
 
-    DateType AdjustWorkDay(const std::string& jur, DateType date, Adjustment adj) const;
 private:
     StorageType storage;
 };

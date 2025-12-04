@@ -38,7 +38,10 @@ inline constexpr u32 DaysTillTheEndOfYear(const DateType& date) {
     return 365 - static_cast<u32>(date.day());
 }
 
-DateType NextYearBeginnning(const DateType& date);
+DateType NextYearBeginning(const DateType& date);
+
+constexpr struct EternityBeforeType {} EternityBefore;
+constexpr struct EternityAfterType {} EternityAfter;
 
 class Period {
 public:
@@ -60,7 +63,7 @@ public:
     }
 
     [[nodiscard]] DiffType Days() const noexcept {
-        return DayDifference(Since(), Until());
+        return DayDifference(Until(), Since());
     }
 
     // DC factors:
@@ -74,16 +77,26 @@ public:
 
     [[nodiscard]] f64 ActActISDA() const;
 
-    bool Contains(const Period& other) const noexcept {
+    [[nodiscard]] bool Contains(const Period& other) const noexcept {
         return Since() <= other.Since() && Until() >= other.Until();
     }
 
-    bool SameYear() const noexcept {
+    [[nodiscard]] bool SameYear() const noexcept {
         return Since().year() == Until().year();
     }
+
 private:
     DateType since;
     DateType until;
 };
+
+
+enum class DcConvention {
+    kAct360,
+    kAct365,
+    kActActISDA,
+};
+
+[[nodiscard]] f64 DayCountFraction(const Period& period, DcConvention method = DcConvention::kActActISDA);
 
 }  // namespace cdr
