@@ -5,12 +5,23 @@
 #include <cdr/types/percent.h>
 #include <cdr/calendar/freq.h>
 #include <cdr/calendar/holiday_storage.h>
+#include <cdr/base/check.h>
 
 #include <functional>
 #include <map>
 #include <tuple>
 
 namespace cdr {
+
+class Curve;
+using DateType = std::chrono::year_month_day;
+
+template <typename T>
+concept Contract = requires(T obj, Curve* curve) {
+    { std::as_const(obj).SettlementDate() } -> std::same_as<DateType>;
+    { obj.ApplyCurve(curve) } -> std::same_as<void>;
+    { obj.NPV(curve) } -> std::same_as<std::optional<f64>>;
+};
 
 class [[nodiscard]] Curve final {
 public:
@@ -30,6 +41,16 @@ public:
     struct CurveEasyInit {
         CurveEasyInit& operator()(DateType date, Percent value) {
             parent_->Insert(date, value);
+            return *this;
+        }
+
+        CurveEasyInit& SetToday(DateType date) {
+            parent_->today_ = date;
+            return *this;
+        }
+
+        CurveEasyInit& SetCalendar(HolidayStorage* hs) {
+            parent_->calendar_ = hs;
             return *this;
         }
 
@@ -68,12 +89,63 @@ public:
         return std::invoke(std::forward<Transformation>(transform), interpolated_value);
     }
 
+    template <Contract T>
+    void AdaptToContract(T *contract) {
+        constexpr f64 precision = 0.001;
+        DateType settlement = contract->SettlementDate();
+        Period period{Today(), settlement};
+
+        Percent left_df = Percent::FromFraction(0.);
+        Percent right_df = Percent::FromFraction(1.);
+        if (!contract->PayFix()) [[unlikely]] {
+            std::swap(left_df, right_df);
+        }
+
+        PointsContainer::iterator node;
+        if (auto iter = points_.lower_bound(settlement);
+            iter == points_.end() || iter->first != settlement) [[likely]] {
+            node = points_.emplace_hint(iter, settlement, Percent::Zero());
+        } else {
+            node = iter;
+        }
+
+        std::optional<f64> npv;
+        do {
+            Percent mid_df = (left_df + right_df) / 2.;
+            node->second = Curve::DiscountToZeroRates(period, mid_df);
+            contract->ApplyCurve(this);
+            npv = contract->NPV(this);
+            CDR_CHECK(npv.has_value()) << "must have value";
+
+            if (*npv < 0) {
+                left_df = mid_df;
+            } else {
+                right_df = mid_df;
+            }
+        } while (std::abs(*npv) < precision);
+    }
+
+    void RollForward(SysDays days);
+
+    [[nodiscard]] DateType Today() const noexcept {
+        return today_;
+    }
+
+    [[nodiscard]] HolidayStorage* Calendar() const noexcept {
+        return calendar_;
+    }
+
+    [[nodiscard]] static Percent ZeroRatesToDiscount(const Period& period, Percent p);
+    [[nodiscard]] static Percent DiscountToZeroRates(const Period& period, Percent p);
+
 private:
 
     void Insert(DateType when, Percent value);
 
 private:
     PointsContainer points_;
+    DateType today_;
+    HolidayStorage* calendar_;
 };
 
 }  // namespace cdr

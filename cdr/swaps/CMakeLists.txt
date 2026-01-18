@@ -6,6 +6,7 @@ cdr_cpp_library(
       cdr::types
       cdr::calendar
       cdr::base
+      cdr::curve
     PUBLIC
 )
 

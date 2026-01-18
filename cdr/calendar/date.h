@@ -85,6 +85,10 @@ public:
         return Since().year() == Until().year();
     }
 
+    auto TupleLike() noexcept {
+        return std::tie(since, until);
+    }
+
 private:
     DateType since;
     DateType until;
