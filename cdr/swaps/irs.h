@@ -182,13 +182,17 @@ public:
         return *this;
     }
 
+    [[maybe_unused]] IrsBuilder& Adjustment(Percent adj) {
+        adjustment_ = adj;
+        return *this;
+    }
+
     [[nodiscard]] IrsContract Build(const HolidayStorage& hs, const std::string& jur,
                                     DateRollingRule rule = DateRollingRule::kFollowing);
 
 
     void Reset();
 private:
-    std::optional<std::string> jurisdiction_;
     std::optional<DateType> maturity_date_;
     std::optional<DateType> settlement_date_;
     std::optional<DateType> effective_date_;

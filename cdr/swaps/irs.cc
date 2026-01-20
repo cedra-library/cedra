@@ -14,7 +14,7 @@ namespace cdr {
     if (!pv_fixed.has_value() || !pv_float.has_value()) {
         return std::nullopt;
     }
-    f64 res = *pv_fixed - *pv_float;
+    f64 res = *pv_float - *pv_fixed;
     if (PayFix()) [[likely]] {
         return res;
     }
@@ -23,8 +23,8 @@ namespace cdr {
 
 [[nodiscard]] std::optional<f64> IrsContract::PVFixed(Curve *curve) const noexcept {
     auto fixed_leg = FixedLeg();
-    Period period = {curve->Today(), {}};
-    auto [today, settlement_date] = period.TupleLike();
+    Period period = {curve->Today(), curve->Today()};
+    auto& [today, settlement_date] = period;
 
     f64 result = 0.;
 
@@ -42,8 +42,8 @@ namespace cdr {
 
 [[nodiscard]] std::optional<f64> IrsContract::PVFloat(Curve *curve) const noexcept {
     auto float_leg = FloatLeg();
-    Period period = {curve->Today(), {}};
-    auto [today, settlement_date] = period.TupleLike();
+    Period period = {curve->Today(), curve->Today()};
+    auto& [today, settlement_date] = period;
 
     auto begin = std::lower_bound(float_leg.begin(), float_leg.end(), today,
                                  [](const IrsPaymentPeriod& period, const DateType& today) {
@@ -80,7 +80,6 @@ void IrsContract::ApplyCurve(Curve* curve) noexcept {
 
 [[nodiscard]] IrsContract IrsBuilder::Build(const HolidayStorage& hs, const std::string& jur, DateRollingRule rule) {
 
-    CDR_CHECK(jurisdiction_.has_value()) << "must be defined";
     CDR_CHECK(maturity_date_.has_value()) << "must be defined";
     CDR_CHECK(settlement_date_.has_value()) << "must be defined";
     CDR_CHECK(cpn_.has_value()) << "must be defined";
@@ -89,6 +88,7 @@ void IrsContract::ApplyCurve(Curve* curve) noexcept {
     CDR_CHECK(paying_fix_.has_value()) << "must be defined";
     CDR_CHECK(fixed_freq_.has_value()) << "must be defined";
     CDR_CHECK(float_freq_.has_value()) << "must be defined";
+    CDR_CHECK(!jur.empty()) << "must be non-empty";
 
     static constexpr u32 kRandomReservationConstant = 10;
     IrsContract result(cpn_.value(), paying_fix_.value());
@@ -157,7 +157,7 @@ void IrsContract::ApplyCurve(Curve* curve) noexcept {
         sched[last].chrono_next_idx_ = curr;
     }
 
-    result.jurisdiction_ = std::move(*jurisdiction_);
+    result.jurisdiction_ = jur;
     result.chrono_last_idx_ = last;
     result.notional_ = *notional_;
     result.payment_periods_ = std::move(sched);
@@ -169,7 +169,6 @@ void IrsContract::ApplyCurve(Curve* curve) noexcept {
 }
 
 void IrsBuilder::Reset() {
-    jurisdiction_ = std::nullopt;
     maturity_date_ = std::nullopt;
     settlement_date_ = std::nullopt;
     effective_date_ = std::nullopt;

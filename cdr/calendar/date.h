@@ -1,10 +1,12 @@
 #pragma once
 
+#include <chrono>
+#include <type_traits>
+
 #include <cdr/base/generator.h>
 #include <cdr/calendar/freq.h>
 #include <cdr/types/integers.h>
 #include <cdr/types/floats.h>
-#include <chrono>
 
 using DateType = std::chrono::year_month_day;
 using WeekDayType = std::chrono::weekday;
@@ -43,7 +45,9 @@ DateType NextYearBeginning(const DateType& date);
 constexpr struct EternityBeforeType {} EternityBefore;
 constexpr struct EternityAfterType {} EternityAfter;
 
-class Period {
+struct Period {
+    DateType since;
+    DateType until;
 public:
     using DiffType = i32;
 public:
@@ -84,16 +88,13 @@ public:
     [[nodiscard]] bool SameYear() const noexcept {
         return Since().year() == Until().year();
     }
-
-    auto TupleLike() noexcept {
-        return std::tie(since, until);
-    }
-
-private:
-    DateType since;
-    DateType until;
 };
 
+template <std::size_t I>
+DateType& get(Period& s);
+
+template <std::size_t I>
+const DateType& get(const Period& s);
 
 enum class DcConvention {
     kAct360,

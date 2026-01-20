@@ -20,7 +20,7 @@ template <typename T>
 concept Contract = requires(T obj, Curve* curve) {
     { std::as_const(obj).SettlementDate() } -> std::same_as<DateType>;
     { obj.ApplyCurve(curve) } -> std::same_as<void>;
-    { obj.NPV(curve) } -> std::same_as<std::optional<f64>>;
+    { std::as_const(obj).NPV(curve) } -> std::same_as<std::optional<f64>>;
 };
 
 class [[nodiscard]] Curve final {
@@ -45,6 +45,7 @@ public:
         }
 
         CurveEasyInit& SetToday(DateType date) {
+            CDR_CHECK(date.ok()) << "date must be valid";
             parent_->today_ = date;
             return *this;
         }
@@ -97,9 +98,7 @@ public:
 
         Percent left_df = Percent::FromFraction(0.);
         Percent right_df = Percent::FromFraction(1.);
-        if (!contract->PayFix()) [[unlikely]] {
-            std::swap(left_df, right_df);
-        }
+        // TODO: ensure target function grows from 0 to 1
 
         PointsContainer::iterator node;
         if (auto iter = points_.lower_bound(settlement);
@@ -122,7 +121,7 @@ public:
             } else {
                 right_df = mid_df;
             }
-        } while (std::abs(*npv) < precision);
+        } while (std::abs(*npv) > precision);
     }
 
     void RollForward(SysDays days);
