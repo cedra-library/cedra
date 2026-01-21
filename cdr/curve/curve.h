@@ -45,13 +45,20 @@ public:
         }
 
         CurveEasyInit& SetToday(DateType date) {
-            CDR_CHECK(date.ok()) << "date must be valid";
+            CDR_CHECK(date.ok()) << "invalid date " << date;
             parent_->today_ = date;
             return *this;
         }
 
         CurveEasyInit& SetCalendar(HolidayStorage* hs) {
+            CDR_CHECK(hs != nullptr) << "calendar should be defined";
             parent_->calendar_ = hs;
+            return *this;
+        }
+
+        CurveEasyInit& SetJurisdiction(const std::string& jur) {
+            CDR_CHECK(!jur.empty()) << "jurisdiction should be non-empty";
+            parent_->jurisdiction_ = jur;
             return *this;
         }
 
@@ -124,7 +131,8 @@ public:
         } while (std::abs(*npv) > precision);
     }
 
-    void RollForward(SysDays days);
+    // Advance current date and all pillars by one buisness day
+    void RollForward() noexcept;
 
     [[nodiscard]] DateType Today() const noexcept {
         return today_;
@@ -132,6 +140,10 @@ public:
 
     [[nodiscard]] HolidayStorage* Calendar() const noexcept {
         return calendar_;
+    }
+
+    [[nodiscard]] const PointsContainer& Pillars() const noexcept {
+        return points_;
     }
 
     [[nodiscard]] static Percent ZeroRatesToDiscount(const Period& period, Percent p);
@@ -143,8 +155,9 @@ private:
 
 private:
     PointsContainer points_;
-    DateType today_;
+    std::string jurisdiction_;
     HolidayStorage* calendar_;
+    DateType today_;
 };
 
 }  // namespace cdr

@@ -28,9 +28,9 @@ TEST(Swaps, Basic) {
 
     cdr::Curve curve;
     curve.StaticInit()
-        (day(10)/January/year(2021), cdr::Percent::FromFraction(0.20))
         .SetToday(today)
         .SetCalendar(&holiday_storage)
+        .SetJurisdiction("RUS")
     ;
 
     cdr::IrsContract irs = cdr::IrsBuilder()
