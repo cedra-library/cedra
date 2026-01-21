@@ -4,18 +4,91 @@
 #include <utility>
 #include <cdr/base/check.h>
 #include <cdr/calendar/date.h>
+#include <cdr/curve/interpolation/linear.h>
 
 namespace cdr {
 
-[[nodiscard]] IrsContract IrsBuilder::Build(const HolidayStorage& hs, const std::string& jur, Adjustment adj) {
+[[nodiscard]] std::optional<f64> IrsContract::NPV(Curve *curve) const noexcept {
+    auto pv_fixed = PVFixed(curve);
+    auto pv_float = PVFloat(curve);
+    if (!pv_fixed.has_value() || !pv_float.has_value()) {
+        return std::nullopt;
+    }
+    f64 res = *pv_float - *pv_fixed;
+    if (PayFix()) [[likely]] {
+        return res;
+    }
+    return -res;
+}
+
+[[nodiscard]] std::optional<f64> IrsContract::PVFixed(Curve *curve) const noexcept {
+    auto fixed_leg = FixedLeg();
+    Period period = {curve->Today(), curve->Today()};
+    auto& [today, settlement_date] = period;
+
+    f64 result = 0.;
+
+    for (const auto& payment_period : fixed_leg) {
+        if (payment_period.Until() < today) {
+            continue;
+        }
+        settlement_date = payment_period.SettlementDate();
+        auto rate = curve->Interpolated<Linear>(settlement_date, *curve->Calendar(), jurisdiction_);
+        result += DayCountFraction(period) * Curve::ZeroRatesToDiscount(period, rate).Fraction();
+    }
+
+    return result * coupon_.Fraction() * notional_;
+}
+
+[[nodiscard]] std::optional<f64> IrsContract::PVFloat(Curve *curve) const noexcept {
+    auto float_leg = FloatLeg();
+    Period period = {curve->Today(), curve->Today()};
+    auto& [today, settlement_date] = period;
+
+    auto begin = std::lower_bound(float_leg.begin(), float_leg.end(), today,
+                                 [](const IrsPaymentPeriod& period, const DateType& today) {
+                                    return period.Until() < today;
+                                 });
+    f64 result = 0.;
+
+    for (const auto& payment_period : float_leg) {
+        if (payment_period.Until() < today) {
+            continue;
+        }
+        settlement_date = payment_period.SettlementDate();
+        if (!payment_period.HasKnownPayment()) {
+            return std::nullopt;
+        }
+        auto rate = curve->Interpolated<Linear>(settlement_date, *curve->Calendar(), jurisdiction_);
+        result += *payment_period.Payment() * DayCountFraction(period) * Curve::ZeroRatesToDiscount(period, rate).Fraction();
+    }
+
+    return result;
+}
+
+void IrsContract::ApplyCurve(Curve* curve) noexcept {
+    auto leg = FloatLegMut();
+
+    for (auto& period : leg) {
+        auto rate = curve->Interpolated<Linear>(period.Until(), *curve->Calendar(), jurisdiction_);
+        f64 payment = (rate + adjustment_).Apply(notional_);
+        period.SetPayment(payment);
+    }
+}
+
+/* IrsBuilder */
+
+[[nodiscard]] IrsContract IrsBuilder::Build(const HolidayStorage& hs, const std::string& jur, DateRollingRule rule) {
 
     CDR_CHECK(maturity_date_.has_value()) << "must be defined";
     CDR_CHECK(settlement_date_.has_value()) << "must be defined";
     CDR_CHECK(cpn_.has_value()) << "must be defined";
+    CDR_CHECK(adjustment_.has_value()) << "must be defined";
     CDR_CHECK(notional_.has_value()) << "must be defined";
     CDR_CHECK(paying_fix_.has_value()) << "must be defined";
     CDR_CHECK(fixed_freq_.has_value()) << "must be defined";
     CDR_CHECK(float_freq_.has_value()) << "must be defined";
+    CDR_CHECK(!jur.empty()) << "must be non-empty";
 
     static constexpr u32 kRandomReservationConstant = 10;
     IrsContract result(cpn_.value(), paying_fix_.value());
@@ -34,7 +107,7 @@ namespace cdr {
     std::optional<DateType> since = std::nullopt;
     std::optional<DateType> until = std::nullopt;
 
-    for (DateType date : hs.BuisnessDays(period.WithFrequency(fixed_freq_.value()), jur, adj)) {
+    for (DateType date : hs.BuisnessDays(period.WithFrequency(fixed_freq_.value()), jur, rule)) {
         since = std::exchange(until, date);
         if (!since) [[unlikely]] {
             continue;
@@ -53,7 +126,7 @@ namespace cdr {
     until = std::nullopt;
     u64 fixed_last = sched.size();
 
-    for (DateType date : hs.BuisnessDays(period.WithFrequency(float_freq_.value()), jur, adj)) {
+    for (DateType date : hs.BuisnessDays(period.WithFrequency(float_freq_.value()), jur, rule)) {
         since = std::exchange(until, date);
         if (!since) [[unlikely]] {
             continue;
@@ -84,8 +157,9 @@ namespace cdr {
         sched[last].chrono_next_idx_ = curr;
     }
 
+    result.jurisdiction_ = jur;
     result.chrono_last_idx_ = last;
-
+    result.notional_ = *notional_;
     result.payment_periods_ = std::move(sched);
     result.fixed_leg_ = result.payment_periods_.data();
     result.float_leg_ = result.payment_periods_.data() + fixed_last;
@@ -101,6 +175,7 @@ void IrsBuilder::Reset() {
     fixed_freq_ = std::nullopt;
     float_freq_ = std::nullopt;
     cpn_ = std::nullopt;
+    adjustment_ = std::nullopt;
     notional_ = std::nullopt;
     paying_fix_ = std::nullopt;
 }

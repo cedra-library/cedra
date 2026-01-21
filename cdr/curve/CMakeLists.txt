@@ -7,6 +7,7 @@ cdr_cpp_library(
     "curve.cc"
     "interpolation/linear.cc"
   DEPS
+    cdr::base
     cdr::calendar
 )
 

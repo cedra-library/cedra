@@ -10,7 +10,7 @@ enum class Freq {
     kDaily,        // Every day
 };
 
-enum class Adjustment {
+enum class DateRollingRule {
     kFollowing,                     // Следующий рабочий день
     kPreceding,                     // Предыдущий рабочий день
     kModifiedFollowing,             // Модифицированный следующий рабочий день

@@ -43,24 +43,24 @@ DateType HolidayStorage::FindPreviousWorkingDay(const std::string& jur, const Da
     return result;
 }
 
-DateType HolidayStorage::AdjustWorkDay(const std::string& jur, DateType date, Adjustment rule) const {
+DateType HolidayStorage::AdjustWorkDay(const std::string& jur, DateType date, DateRollingRule rule) const {
     if (!IsWeekend(jur, date)) {
         return date;
     }
 
     switch (rule) {
-    case Adjustment::kFollowing:
+    case DateRollingRule::kFollowing:
         return FindNextWorkingDay(jur, date);
-    case Adjustment::kPreceding:
+    case DateRollingRule::kPreceding:
         return FindPreviousWorkingDay(jur, date);
-    case Adjustment::kModifiedFollowing: {
+    case DateRollingRule::kModifiedFollowing: {
         DateType adjusted = FindNextWorkingDay(jur, date);
         if (adjusted.month() != date.month()) {
             return FindPreviousWorkingDay(jur, date);
         }
         return adjusted;
     }
-    case Adjustment::kUnadjusted:
+    case DateRollingRule::kUnadjusted:
         return date;
     }
 
@@ -68,7 +68,7 @@ DateType HolidayStorage::AdjustWorkDay(const std::string& jur, DateType date, Ad
 }
 
 Generator<DateType> HolidayStorage::BuisnessDays(Generator<DateType> dates, const std::string& jur,
-                                                 Adjustment adjustment) const {
+                                                 DateRollingRule adjustment) const {
     DateType prev;
     for (DateType date : dates) {
         DateType adjusted = AdjustWorkDay(jur, date, adjustment);
