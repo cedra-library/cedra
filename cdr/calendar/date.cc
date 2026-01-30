@@ -36,7 +36,7 @@ bool IsLastMonthDay(const DateType& ymd) {
     return static_cast<unsigned>(ymd.day()) == LastMonthDay(ymd);
 }
 
-void AddMonths(DateType& ymd, unsigned months) {
+void AddMonths(DateType& ymd, i32 months) {
     ymd += chrono::months(months);
 
     if (!ymd.ok()) {
@@ -87,14 +87,6 @@ Generator<DateType> Period::WithFrequency(Freq freq) const {
             current_date = NextDay(current_date);
         }
         break;
-    }
-}
-
-Period::Period(const DateType& since, const DateType& until)
-    : since(since), until(until)
-{
-    if (!Valid()) {
-        throw std::logic_error("invalid period");
     }
 }
 

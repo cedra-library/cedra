@@ -17,9 +17,11 @@ public:
     static constexpr u32 kNotInitialized = std::numeric_limits<u32>::max();
 
     friend class IrsBuilder;
+    friend class IrsBuilderExperimental;
 
 public:
 
+    IrsPaymentPeriod() = default;
     explicit IrsPaymentPeriod(const Period& bounds, const std::optional<f64>& payment = std::nullopt)
         : bounds_(bounds)
         , settlement_date_(bounds_.Until())
@@ -71,7 +73,10 @@ private:
 
 class IrsContract final {
 public:
+    enum class Stub {SHORT, LONG};
+public:
     friend class IrsBuilder;
+    friend class IrsBuilderExperimental;
 
     [[nodiscard]] std::span<const IrsPaymentPeriod> FixedLeg() const noexcept {
         return {fixed_leg_, float_leg_};
@@ -89,8 +94,8 @@ public:
         return payment_periods_.back().Until();
     }
 
-    [[nodiscard]] const Percent& Coupon() const noexcept {
-        return coupon_;
+    [[nodiscard]] const Percent& FixedRate() const noexcept {
+        return fixed_rate_;
     }
 
     [[nodiscard]] bool PayFix() const noexcept {
@@ -114,8 +119,8 @@ public:
 
 private:
 
-    IrsContract(Percent coupon, bool paying_fix)
-        : coupon_(coupon)
+    IrsContract(Percent fixed_rate, bool paying_fix)
+        : fixed_rate_(fixed_rate)
         , paying_fix_(paying_fix)
     {}
 
@@ -132,7 +137,7 @@ private:
     std::vector<IrsPaymentPeriod> payment_periods_;
     IrsPaymentPeriod* fixed_leg_ = nullptr;
     IrsPaymentPeriod* float_leg_ = nullptr;
-    Percent coupon_;
+    Percent fixed_rate_;
     Percent adjustment_;
     f64 notional_;
     u32 chrono_start_idx_ = 0;
@@ -142,8 +147,8 @@ private:
 
 class IrsBuilder final {
 public:
-    [[maybe_unused]] IrsBuilder& Coupon(Percent p) {
-        cpn_ = p;
+    [[maybe_unused]] IrsBuilder& FixedRate(Percent p) {
+        fixed_rate_ = p;
         return *this;
     }
 
@@ -190,15 +195,97 @@ public:
     [[nodiscard]] IrsContract Build(const HolidayStorage& hs, const std::string& jur,
                                     DateRollingRule rule = DateRollingRule::kFollowing);
 
-
     void Reset();
+
 private:
     std::optional<DateType> maturity_date_;
     std::optional<DateType> settlement_date_;
     std::optional<DateType> effective_date_;
     std::optional<Freq> fixed_freq_;
     std::optional<Freq> float_freq_;
-    std::optional<Percent> cpn_;
+    std::optional<Percent> fixed_rate_;
+    std::optional<Percent> adjustment_;
+    std::optional<f64> notional_;
+    std::optional<bool> paying_fix_;
+};
+
+class IrsBuilderExperimental {
+public:
+    [[maybe_unused]] IrsBuilderExperimental& TradeDate(const DateType& trade_date) {
+        trade_date_ = trade_date;
+        return *this;
+    }
+
+    [[maybe_unused]] IrsBuilderExperimental& StartShift(u32 shift) {
+        start_shift_ = shift;
+        return *this;
+    }
+
+    [[maybe_unused]] IrsBuilderExperimental& FixedTerm(Tenor term) {
+        fixed_term_ = term;
+        return *this;
+    }
+
+    [[maybe_unused]] IrsBuilderExperimental& FloatTerm(Tenor term) {
+        float_term_ = term;
+        return *this;
+    }
+
+    [[maybe_unused]] IrsBuilderExperimental& FixedFreq(Tenor freq) {
+        fixed_freq_ = freq;
+        return *this;
+    }
+
+    [[maybe_unused]] IrsBuilderExperimental& FloatFreq(Tenor freq) {
+        float_freq_ = freq;
+        return *this;
+    }
+
+    [[maybe_unused]] IrsBuilderExperimental& PaymentDateShift(u32 shift) {
+        payment_date_shift_ = shift;
+        return *this;
+    }
+
+    [[maybe_unused]] IrsBuilderExperimental& Stub(IrsContract::Stub stub) {
+        stub_ = stub;
+        return *this;
+    }
+
+    [[maybe_unused]] IrsBuilderExperimental& FixedRate(Percent p) {
+        fixed_rate_ = p;
+        return *this;
+    }
+
+    [[maybe_unused]] IrsBuilderExperimental& Adjustment(Percent adj) {
+        adjustment_ = adj;
+        return *this;
+    }
+
+    [[maybe_unused]] IrsBuilderExperimental& Notion(f64 value) {
+        notional_ = value;
+        return *this;
+    }
+
+    [[maybe_unused]] IrsBuilderExperimental& PayFix(bool pf) {
+        paying_fix_ = pf;
+        return *this;
+    }
+
+    [[nodiscard]] IrsContract Build(const HolidayStorage& hs, const std::string& jur,
+                                    DateRollingRule rule = DateRollingRule::kFollowing);
+
+    void Reset();
+
+private:
+    std::optional<DateType> trade_date_;
+    std::optional<u32> start_shift_;
+    std::optional<Tenor> fixed_term_;
+    std::optional<Tenor> float_term_;
+    std::optional<Tenor> fixed_freq_;
+    std::optional<Tenor> float_freq_;
+    std::optional<u32> payment_date_shift_;
+    std::optional<IrsContract::Stub> stub_;
+    std::optional<Percent> fixed_rate_;
     std::optional<Percent> adjustment_;
     std::optional<f64> notional_;
     std::optional<bool> paying_fix_;

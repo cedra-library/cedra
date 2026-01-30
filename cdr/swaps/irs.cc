@@ -37,7 +37,7 @@ namespace cdr {
         result += DayCountFraction(period) * Curve::ZeroRatesToDiscount(period, rate).Fraction();
     }
 
-    return result * coupon_.Fraction() * notional_;
+    return result * fixed_rate_.Fraction() * notional_;
 }
 
 [[nodiscard]] std::optional<f64> IrsContract::PVFloat(Curve *curve) const noexcept {
@@ -82,7 +82,7 @@ void IrsContract::ApplyCurve(Curve* curve) noexcept {
 
     CDR_CHECK(maturity_date_.has_value()) << "must be defined";
     CDR_CHECK(settlement_date_.has_value()) << "must be defined";
-    CDR_CHECK(cpn_.has_value()) << "must be defined";
+    CDR_CHECK(fixed_rate_.has_value()) << "must be defined";
     CDR_CHECK(adjustment_.has_value()) << "must be defined";
     CDR_CHECK(notional_.has_value()) << "must be defined";
     CDR_CHECK(paying_fix_.has_value()) << "must be defined";
@@ -91,7 +91,7 @@ void IrsContract::ApplyCurve(Curve* curve) noexcept {
     CDR_CHECK(!jur.empty()) << "must be non-empty";
 
     static constexpr u32 kRandomReservationConstant = 10;
-    IrsContract result(cpn_.value(), paying_fix_.value());
+    IrsContract result(fixed_rate_.value(), paying_fix_.value());
 
     std::vector<IrsPaymentPeriod> sched;
     sched.reserve(kRandomReservationConstant);
@@ -101,13 +101,13 @@ void IrsContract::ApplyCurve(Curve* curve) noexcept {
     };
     std::priority_queue<u32, std::vector<u32>, decltype(compare_dates)> chronological_order(compare_dates);
 
-    f64 fixed_payment = cpn_->Apply(notional_.value());
+    f64 fixed_payment = fixed_rate_->Apply(notional_.value());
     u32 idx = 0;
 
     std::optional<DateType> since = std::nullopt;
     std::optional<DateType> until = std::nullopt;
 
-    for (DateType date : hs.BuisnessDays(period.WithFrequency(fixed_freq_.value()), jur, rule)) {
+    for (DateType date : hs.BusinessDays(period.WithFrequency(fixed_freq_.value()), jur, rule)) {
         since = std::exchange(until, date);
         if (!since) [[unlikely]] {
             continue;
@@ -126,7 +126,7 @@ void IrsContract::ApplyCurve(Curve* curve) noexcept {
     until = std::nullopt;
     u64 fixed_last = sched.size();
 
-    for (DateType date : hs.BuisnessDays(period.WithFrequency(float_freq_.value()), jur, rule)) {
+    for (DateType date : hs.BusinessDays(period.WithFrequency(float_freq_.value()), jur, rule)) {
         since = std::exchange(until, date);
         if (!since) [[unlikely]] {
             continue;
@@ -174,10 +174,126 @@ void IrsBuilder::Reset() {
     effective_date_ = std::nullopt;
     fixed_freq_ = std::nullopt;
     float_freq_ = std::nullopt;
-    cpn_ = std::nullopt;
+    fixed_rate_ = std::nullopt;
     adjustment_ = std::nullopt;
     notional_ = std::nullopt;
     paying_fix_ = std::nullopt;
+}
+
+/* IrsBuilderExperimental */
+
+[[nodiscard]] IrsContract IrsBuilderExperimental::Build(const HolidayStorage& hs, const std::string& jur, DateRollingRule rule) {
+
+    CDR_CHECK(trade_date_.has_value()) << "must be defined";
+    CDR_CHECK(start_shift_.has_value()) << "must be defined";
+    CDR_CHECK(fixed_term_.has_value()) << "must be defined";
+    CDR_CHECK(float_term_.has_value()) << "must be defined";
+    CDR_CHECK(fixed_freq_.has_value()) << "must be defined";
+    CDR_CHECK(float_freq_.has_value()) << "must be defined";
+    CDR_CHECK(payment_date_shift_.has_value()) << "must be defined";
+    CDR_CHECK(stub_.has_value()) << "must be defined";
+    CDR_CHECK(adjustment_.has_value()) << "must be defined";
+    CDR_CHECK(notional_.has_value()) << "must be defined";
+    CDR_CHECK(paying_fix_.has_value()) << "must be defined";
+    CDR_CHECK(!jur.empty()) << "must be non-empty";
+
+    CDR_CHECK(fixed_freq_->number > 0) << "must be positive";
+    CDR_CHECK(float_freq_->number > 0) << "must be positive";
+
+    IrsContract result(fixed_rate_.value_or(Percent::Zero()), *paying_fix_);
+    std::vector<IrsPaymentPeriod> sched;
+
+    // --------- fixed leg ------------
+
+    DateType first_payment_period_start = hs.AdvanceDateByBusinessDays(jur, *trade_date_, *start_shift_);
+    IrsPaymentPeriod last_payment_period;
+    last_payment_period.bounds_.until = hs.AdvanceDateByConvention(jur, first_payment_period_start, *fixed_term_, rule);
+    DateType aux_date = hs.AdvanceDateByTenor(first_payment_period_start, *fixed_term_);
+    IrsPaymentPeriod period = last_payment_period;
+    auto tenor = *fixed_freq_;
+    tenor.number *= -1;
+    do {
+        sched.push_back(period);
+        period.bounds_.until = hs.AdvanceDateByTenor(aux_date, tenor);
+        period.bounds_.until = hs.AdjustWorkDay(jur, period.bounds_.until, rule);
+        tenor.number -= fixed_freq_->number;
+    } while (period.bounds_.until > first_payment_period_start);
+
+    if (period.bounds_.until == first_payment_period_start || *stub_ == IrsContract::Stub::SHORT) {
+        CDR_CHECK(sched.size() >= 1) << "must be more periods";
+        sched.back().bounds_.since = first_payment_period_start;
+    } else {
+        CDR_CHECK(sched.size() >= 2) << "must be more periods";
+        sched.pop_back();
+        sched.back().bounds_.since = first_payment_period_start;
+    }
+    std::reverse(sched.begin(), sched.end());
+
+    for (u32 i = 0; i < sched.size() - 1; ++i) {
+        sched[i+1].bounds_.since = sched[i].bounds_.until;
+        sched[i].settlement_date_ = hs.AdvanceDateByBusinessDays(jur, sched[i].bounds_.until, *payment_date_shift_);
+    }
+    sched.back().settlement_date_ = hs.AdvanceDateByBusinessDays(jur, sched.back().bounds_.until, *payment_date_shift_);
+
+    // --------- float leg ------------
+
+    u32 float_begin = ssize(sched);
+    first_payment_period_start = hs.AdvanceDateByBusinessDays(jur, *trade_date_, *start_shift_);
+    last_payment_period.bounds_.until = hs.AdvanceDateByConvention(jur, first_payment_period_start, *float_term_, rule);
+    aux_date = hs.AdvanceDateByTenor(first_payment_period_start, *float_term_);
+    period = last_payment_period;
+    tenor = *float_freq_;
+    tenor.number *= -1;
+    do {
+        sched.push_back(period);
+        period.bounds_.until = hs.AdvanceDateByTenor(aux_date, tenor);
+        period.bounds_.until = hs.AdjustWorkDay(jur, period.bounds_.until, rule);
+        tenor.number -= float_freq_->number;
+    } while (period.bounds_.until > first_payment_period_start);
+
+    if (period.bounds_.until == first_payment_period_start || *stub_ == IrsContract::Stub::SHORT) {
+        CDR_CHECK(sched.size() >= float_begin + 1) << "must be more periods";
+        sched.back().bounds_.since = first_payment_period_start;
+    } else {
+        CDR_CHECK(sched.size() >= float_begin + 2) << "must be more periods";
+        sched.pop_back();
+        sched.back().bounds_.since = first_payment_period_start;
+    }
+    std::reverse(sched.begin() + float_begin, sched.end());
+
+    for (u32 i = 0; i < sched.size() - 1; ++i) {
+        sched[i+1].bounds_.since = sched[i].bounds_.until;
+        sched[i].settlement_date_ = hs.AdvanceDateByBusinessDays(jur, sched[i].bounds_.until, *payment_date_shift_);
+    }
+    sched.back().settlement_date_ = hs.AdvanceDateByBusinessDays(jur, sched.back().bounds_.until, *payment_date_shift_);
+
+    // -------------------------------
+
+    result.jurisdiction_ = jur;
+    result.payment_periods_ = std::move(sched);
+    result.fixed_leg_ = result.payment_periods_.data();
+    result.float_leg_ = result.payment_periods_.data() + float_begin;
+    result.adjustment_ = *adjustment_;
+    result.notional_ = *notional_;
+    // result.chrono_last_idx_ = last;
+
+    Reset();
+    return result;
+}
+
+void IrsBuilderExperimental::Reset() {
+    trade_date_.reset();
+    start_shift_.reset();
+    fixed_term_.reset();
+    float_term_.reset();
+    fixed_freq_.reset();
+    float_freq_.reset();
+    payment_date_shift_.reset();
+    stub_.reset();
+    fixed_rate_.reset();
+    adjustment_.reset();
+    notional_.reset();
+    paying_fix_.reset();
 }
 
 } // namespace cdr

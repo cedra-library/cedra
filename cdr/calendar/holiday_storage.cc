@@ -67,7 +67,43 @@ DateType HolidayStorage::AdjustWorkDay(const std::string& jur, DateType date, Da
     return date;
 }
 
-Generator<DateType> HolidayStorage::BuisnessDays(Generator<DateType> dates, const std::string& jur,
+DateType HolidayStorage::AdvanceDateByBusinessDays(const std::string& jur, DateType date, i32 days) const {
+    if (days >= 0) [[likely]] {
+        for (i32 i = 0; i < days; i++) {
+            date = FindNextWorkingDay(jur, date);
+        }
+    } else {
+        for (i32 i = 0; i > days; i--) {
+            date = FindPreviousWorkingDay(jur, date);
+        }
+    }
+    return date;
+}
+
+DateType HolidayStorage::AdvanceDateByTenor(DateType date, Tenor tenor) const {
+    switch (tenor.unit) {
+        case TimeUnit::Day:
+            return std::chrono::sys_days{date} + std::chrono::days{tenor.number};
+        case TimeUnit::Week:
+            return std::chrono::sys_days{date} + std::chrono::days{tenor.number * 7};
+        case TimeUnit::Month:
+            AddMonths(date, tenor.number);
+            return date;
+        case TimeUnit::Year:
+            AddMonths(date, tenor.number * 12);
+            return date;
+        default:
+            return std::chrono::year_month_day{};
+    }
+}
+
+DateType HolidayStorage::AdvanceDateByConvention(const std::string& jur, DateType date, Tenor tenor, DateRollingRule rule) const {
+    date = AdvanceDateByTenor(date, tenor);
+    date = AdjustWorkDay(jur, date, rule);
+    return date;
+}
+
+Generator<DateType> HolidayStorage::BusinessDays(Generator<DateType> dates, const std::string& jur,
                                                  DateRollingRule adjustment) const {
     DateType prev;
     for (DateType date : dates) {
