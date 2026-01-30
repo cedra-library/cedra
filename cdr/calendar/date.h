@@ -27,7 +27,8 @@ unsigned LastMonthDay(const DateType& date);
 
 bool IsLastMonthDay(const DateType& date);
 
-void AddMonths(DateType& ymd, unsigned months);
+// last_day -> last_day
+void AddMonths(DateType& ymd, i32 months);
 
 inline constexpr u64 DaysInYear(const DateType& date) {
     return date.year().is_leap() ? 366 : 365;
@@ -48,10 +49,6 @@ constexpr struct EternityAfterType {} EternityAfter;
 struct Period {
     DateType since;
     DateType until;
-public:
-    using DiffType = i32;
-public:
-    Period(const DateType& since, const DateType& until);
 
     [[nodiscard]] bool Valid() const {
         return since.ok() && until.ok() && since <= until;

@@ -34,7 +34,7 @@ TEST(Swaps, Basic) {
     ;
 
     cdr::IrsContract irs = cdr::IrsBuilder()
-      .Coupon(cdr::Percent::FromFraction(0.24))
+      .FixedRate(cdr::Percent::FromFraction(0.24))
       .PayFix(true)
       .Notion(2'000'000)
       .FixedFreq(cdr::Freq::kQuarterly)
@@ -55,4 +55,51 @@ TEST(Swaps, Basic) {
 
     auto pv_fixed = irs.PVFixed(&curve);
     ASSERT_TRUE(pv_fixed.has_value());
+}
+
+TEST(Basic, Experimental) {
+    using namespace std::chrono;
+    using namespace cdr::literals;
+
+    cdr::HolidayStorage holiday_storage;
+    holiday_storage.StaticInit()
+        ("RUB", year(2025) / December / day(31))
+        ("RUB", year(2026) / January / day(1))
+        ("RUB", year(2026) / January / day(2))
+        ("RUB", year(2026) / January / day(3))
+        ("RUB", year(2026) / January / day(4))
+        ("RUB", year(2026) / January / day(5))
+        ("RUB", year(2026) / January / day(6))
+        ("RUB", year(2026) / January / day(7))
+        ("RUB", year(2026) / January / day(8))
+        ("RUB", year(2026) / January / day(9))
+    ;
+    DateType today = day(29)/December/year(2025);
+    DateType tomorrow = day(30)/December/year(2025);
+    DateType jan12 = day(12)/January/year(2026);
+
+    cdr::Curve curve;
+    curve.StaticInit()
+        .SetToday(today)
+        .SetJurisdiction("RUB")
+        .SetCalendar(&holiday_storage)
+    ;
+    cdr::IrsContract swap = cdr::IrsBuilderExperimental()
+        .Adjustment(0_percents)
+        .FixedFreq({1, cdr::TimeUnit::Week})
+        .FloatFreq({1, cdr::TimeUnit::Week})
+        .FixedTerm({1, cdr::TimeUnit::Week})
+        .FloatTerm({1, cdr::TimeUnit::Week})
+        .Notion(1000)
+        .PayFix(true)
+        .PaymentDateShift(0)
+        .StartShift(1)
+        .Stub(cdr::IrsContract::Stub::SHORT)
+        .TradeDate(today)
+        .Build(holiday_storage, "RUB", cdr::DateRollingRule::kModifiedFollowing)
+    ;
+
+    ASSERT_TRUE(swap.FixedLeg().size() == 1);
+    ASSERT_EQ(swap.FixedLeg().back().Since(), tomorrow);
+    ASSERT_EQ(swap.FixedLeg().back().Until(), jan12);
 }

@@ -22,7 +22,7 @@ TEST(HStorage, basic) {
     cdr::Period per(sett, matur);
 
 
-    auto buisness_days = hs.BuisnessDays(per.WithFrequency(cdr::Freq::kDaily), "RUS");
+    auto buisness_days = hs.BusinessDays(per.WithFrequency(cdr::Freq::kDaily), "RUS");
 
     for (const auto& day : buisness_days) {
         std::cerr << day << std::endl;
