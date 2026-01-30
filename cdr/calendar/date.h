@@ -47,6 +47,8 @@ constexpr struct EternityBeforeType {} EternityBefore;
 constexpr struct EternityAfterType {} EternityAfter;
 
 struct Period {
+    using DiffType = i32;
+
     DateType since;
     DateType until;
 

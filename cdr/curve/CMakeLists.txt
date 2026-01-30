@@ -9,6 +9,7 @@ cdr_cpp_library(
   DEPS
     cdr::base
     cdr::calendar
+    cdr::math
 )
 
 cdr_cpp_test(

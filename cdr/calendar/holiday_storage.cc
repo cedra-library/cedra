@@ -43,6 +43,44 @@ DateType HolidayStorage::FindPreviousWorkingDay(const std::string& jur, const Da
     return result;
 }
 
+static i64 CountWeekends(const DateType& left, const DateType& right) {
+    auto sys_left = std::chrono::sys_days(left);
+    auto sys_right = std::chrono::sys_days(right);
+    if (sys_right <= sys_left) [[unlikely]] {
+        return 0;
+    }
+    auto diff = sys_right - sys_left;
+    auto total_days = diff.count();
+    i64 weekends = (total_days / 7) * 2;
+    i32 remaining_days = total_days % 7;
+    std::chrono::weekday wd_start = sys_left;
+    for (i32 i = 0; i < remaining_days; i++) {
+        if (wd_start == std::chrono::Saturday || wd_start == std::chrono::Sunday) {
+            weekends++;
+        }
+        wd_start++;
+    }
+    return weekends;
+}
+
+[[nodiscard]] i64 HolidayStorage::CountBuisnessDays(const DateType& left, const DateType& right, const std::string& jur) const {
+    auto num_weekends = CountWeekends(left, right);
+    auto sys_left = std::chrono::sys_days(left).time_since_epoch().count();
+    auto sys_right = std::chrono::sys_days(right).time_since_epoch().count();
+    if (sys_left >= sys_right) [[unlikely]] {
+        return 0;
+    }
+    auto it = storage.find(jur);
+    if (it == storage.end()) [[unlikely]] {
+        return (sys_right - sys_left) - num_weekends;
+    }
+    const auto& calendar = it->second;
+    auto left_it = calendar.lower_bound(left);
+    auto right_it = calendar.upper_bound(right);
+    auto num_holidays = std::distance(left_it, right_it);
+    return (sys_right - sys_left) - (num_weekends + num_holidays);
+}
+
 DateType HolidayStorage::AdjustWorkDay(const std::string& jur, DateType date, DateRollingRule rule) const {
     if (!IsWeekend(jur, date)) {
         return date;

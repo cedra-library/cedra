@@ -74,6 +74,8 @@ public:
 
     [[nodiscard]] DateType FindPreviousWorkingDay(const std::string& jur, const DateType& date) const;
 
+    [[nodiscard]] int64_t CountBuisnessDays(const DateType& left, const DateType& right, const std::string& jur) const;
+
     bool Empty() const noexcept {
         return storage.empty();
     }
