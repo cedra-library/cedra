@@ -8,17 +8,59 @@
 
 namespace cdr {
 
+[[nodiscard]] std::optional<f64> IrsContract::dNPV(Curve *curve, const DateType& date, Percent rate) const noexcept {
+    auto dpv_fixed = dPVFixed(curve, date, rate);
+    auto dpv_float = dPVFloat(curve, date, rate);
+    if (!dpv_fixed.has_value() || !dpv_float.has_value()) [[unlikely]] {
+        return std::nullopt;
+    }
+    std::optional<f64> res = std::make_optional<f64>(*dpv_float - *dpv_fixed);
+    if (!PayFix()) [[unlikely]] {
+        *res *= -1;
+    }
+    return res;
+}
+
+[[nodiscard]] std::optional<f64> IrsContract::dPVFixed(Curve *curve, const DateType& date, Percent rate) const noexcept {
+    const auto& pillars = curve->Pillars();
+    auto node = pillars.find(date);
+    CDR_CHECK(node != pillars.end()) << "date should be present";
+    CDR_CHECK(node->second == rate) << "rates should be equal";
+    auto fixed_leg = FixedLeg();
+    decltype(fixed_leg)::iterator begin;
+    if (node == pillars.begin()) {
+        begin = fixed_leg.begin();
+    } else {
+        auto node_prev = std::prev(node);
+        begin = std::upper_bound(fixed_leg.begin(), fixed_leg.end(), node_prev->first, [](const DateType& val, const IrsPaymentPeriod& period) {
+                return period.SettlementDate() < val;
+            });
+    }
+    if (begin == fixed_leg.end()) [[unlikely]] {
+        return 0.;
+    }
+    decltype(begin) end;
+
+
+    return {};
+}
+
+[[nodiscard]] std::optional<f64> IrsContract::dPVFloat(Curve *curve, const DateType& date, Percent rate) const noexcept {
+    const auto& pillars = curve->Pillars();
+    return {};
+}
+
 [[nodiscard]] std::optional<f64> IrsContract::NPV(Curve *curve) const noexcept {
     auto pv_fixed = PVFixed(curve);
     auto pv_float = PVFloat(curve);
-    if (!pv_fixed.has_value() || !pv_float.has_value()) {
+    if (!pv_fixed.has_value() || !pv_float.has_value()) [[unlikely]] {
         return std::nullopt;
     }
-    f64 res = *pv_float - *pv_fixed;
-    if (PayFix()) [[likely]] {
-        return res;
+    std::optional<f64> res = std::make_optional<f64>(*pv_float - *pv_fixed);
+    if (!PayFix()) [[unlikely]] {
+        *res *= -1;
     }
-    return -res;
+    return res;
 }
 
 [[nodiscard]] std::optional<f64> IrsContract::PVFixed(Curve *curve) const noexcept {

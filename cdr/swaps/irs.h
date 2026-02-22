@@ -117,6 +117,13 @@ public:
     [[nodiscard]] std::optional<f64> PVFloat(Curve *curve) const noexcept;
     [[nodiscard]] std::optional<f64> NPV(Curve *curve) const noexcept;
 
+    // Deprecated. Use cdr/math instead
+    [[nodiscard]] std::optional<f64> dPVFixed(Curve *curve, const DateType& date, Percent rate) const noexcept;
+    // Deprecated. Use cdr/math instead
+    [[nodiscard]] std::optional<f64> dPVFloat(Curve *curve, const DateType& date, Percent rate) const noexcept;
+    // Deprecated. Use cdr/math instead
+    [[nodiscard]] std::optional<f64> dNPV(Curve *curve, const DateType& date, Percent rate) const noexcept;
+
 private:
 
     IrsContract(Percent fixed_rate, bool paying_fix)

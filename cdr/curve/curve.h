@@ -6,6 +6,7 @@
 #include <cdr/calendar/freq.h>
 #include <cdr/calendar/holiday_storage.h>
 #include <cdr/base/check.h>
+#include <cdr/math/newton_raphson/newton_raphson.h>
 
 #include <functional>
 #include <map>
@@ -43,29 +44,29 @@ public:
 
     struct CurveEasyInit {
         CurveEasyInit& operator()(DateType date, Percent value) {
-            parent_->Insert(date, value);
+            target_->Insert(date, value);
             return *this;
         }
 
         CurveEasyInit& SetToday(DateType date) {
             CDR_CHECK(date.ok()) << "invalid date " << date;
-            parent_->today_ = date;
+            target_->today_ = date;
             return *this;
         }
 
         CurveEasyInit& SetCalendar(HolidayStorage* hs) {
             CDR_CHECK(hs != nullptr) << "calendar should be defined";
-            parent_->calendar_ = hs;
+            target_->calendar_ = hs;
             return *this;
         }
 
         CurveEasyInit& SetJurisdiction(const std::string& jur) {
             CDR_CHECK(!jur.empty()) << "jurisdiction should be non-empty";
-            parent_->jurisdiction_ = jur;
+            target_->jurisdiction_ = jur;
             return *this;
         }
 
-        Curve* parent_;
+        Curve* target_;
     };
 
     CurveEasyInit StaticInit();
@@ -101,7 +102,7 @@ public:
     }
 
     template <Contract T>
-    void AdaptToContract(T *contract) {
+    void AdaptToContract(T* contract) {
         constexpr f64 precision = 0.001;
         DateType settlement = contract->SettlementDate();
         Period period{Today(), settlement};
@@ -118,20 +119,26 @@ public:
             node = iter;
         }
 
-        std::optional<f64> npv;
+        auto target = [&](f64 x) {
+            auto df = Percent::FromFraction(x);
+            node->second = Curve::DiscountToZeroRates(period, df);
+            contract->ApplyCurve(this);
+            auto npv = contract->NPV(this);
+            CDR_CHECK(npv.has_value()) << "must have value";
+            return *npv;
+        };
         do {
             Percent mid_df = (left_df + right_df) / 2.;
-            node->second = Curve::DiscountToZeroRates(period, mid_df);
-            contract->ApplyCurve(this);
-            npv = contract->NPV(this);
-            CDR_CHECK(npv.has_value()) << "must have value";
+            f64 npv = target(mid_df.Fraction());
 
-            if (*npv < 0) {
+            if (npv < 0) {
                 left_df = mid_df;
             } else {
                 right_df = mid_df;
             }
-        } while (std::abs(*npv) > precision);
+        } while ((right_df - left_df).Fraction() > precision);
+        // TODO add check left_df > 0 ...
+        FindRoot(target, left_df.Fraction(), right_df.Fraction(), std::nullopt);
     }
 
     // Advance current date and all pillars by one buisness day
@@ -159,8 +166,16 @@ private:
 private:
     PointsContainer points_;
     std::string jurisdiction_;
-    HolidayStorage* calendar_;
     DateType today_;
+    HolidayStorage* calendar_;
+};
+
+class CurveBuilder {
+public:
+
+private:
+    std::optional<Curve*> parent_;
+    std::optional<std::string> jurisdiction_;
 };
 
 }  // namespace cdr
