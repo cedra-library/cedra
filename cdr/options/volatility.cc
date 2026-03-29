@@ -82,7 +82,7 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
     auto dates = Dates();
 
     const auto it_date = std::ranges::lower_bound(dates, target_t);
-    std::size_t d1 = 0, d2 = 0;
+    u64 d1 = 0, d2 = 0;
 
     if (it_date == dates.begin()) {
         d1 = d2 = 0;
@@ -94,7 +94,7 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
     }
 
     const auto it_strike = std::ranges::lower_bound(strikes, strike);
-    std::size_t s1 = 0, s2 = 0;
+    u64 s1 = 0, s2 = 0;
 
     if (it_strike == strikes.begin()) {
         s1 = s2 = 0;
@@ -104,7 +104,7 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
         s2 = std::distance(strikes.begin(), it_strike);
         s1 = s2 - 1;
     }
-    auto get_vol = [&](const std::size_t d_idx, const std::size_t s_idx) {
+    auto get_vol = [&](const u64 d_idx, const u64 s_idx) {
         return volatility_ptr_[d_idx * header_ptr_->strikes_size + s_idx];
     };
 
@@ -119,7 +119,7 @@ bool VolatilitySurface::Reclaim() noexcept {
         return false;
     }
 
-    if (const std::size_t remaining = header_ptr_->reference_count.fetch_sub(1, std::memory_order_acq_rel);
+    if (const u64 remaining = header_ptr_->reference_count.fetch_sub(1, std::memory_order_acq_rel);
         remaining == 1) {
         free(const_cast<SurfaceHeader*>(header_ptr_));
         header_ptr_ = nullptr;
@@ -143,8 +143,8 @@ Expect<void, Error> VolatilitySurfaceProvider::AddPillar(const DateType& date, c
     return Ok();
 }
 
-inline std::size_t AlignToCacheLine(const std::size_t size) noexcept {
-    static constexpr std::size_t cache_line_size = std::hardware_destructive_interference_size - 1;
+inline u64 AlignToCacheLine(const u64 size) noexcept {
+    static constexpr u64 cache_line_size = std::hardware_destructive_interference_size - 1;
     return (size + cache_line_size) & ~cache_line_size;
 }
 
@@ -158,11 +158,11 @@ inline std::size_t AlignToCacheLine(const std::size_t size) noexcept {
     strikes_.erase(stdr::unique(strikes_).begin(), strikes_.end());
 
     // Precompute offsets and sizes
-    constexpr std::size_t k_surface_header_size_bytes = sizeof(VolatilitySurface::SurfaceHeader);
-    const std::size_t k_dates_size_bytes = dates_.size() * sizeof(f64);
-    const std::size_t k_strikes_size_bytes = strikes_.size() * sizeof(f64);
+    constexpr u64 k_surface_header_size_bytes = sizeof(VolatilitySurface::SurfaceHeader);
+    const u64 k_dates_size_bytes = dates_.size() * sizeof(f64);
+    const u64 k_strikes_size_bytes = strikes_.size() * sizeof(f64);
 
-    const std::size_t k_whole_size_bytes =
+    const u64 k_whole_size_bytes =
         AlignToCacheLine(k_surface_header_size_bytes + k_strikes_size_bytes + k_dates_size_bytes +
                          dates_.size() * strikes_.size() * sizeof(f64));
 
@@ -199,17 +199,17 @@ inline std::size_t AlignToCacheLine(const std::size_t size) noexcept {
 
     // Fill volatility matrix
     {
-        const std::size_t strikes_size = strikes_.size();
-        const std::size_t dates_size = dates_.size();
+        const u64 strikes_size = strikes_.size();
+        const u64 dates_size = dates_.size();
 
         auto pillars_iter = pillars_.cbegin();
 
-        for (std::size_t date_idx = 0; date_idx < dates_size; ++date_idx, ++pillars_iter) {
+        for (u64 date_idx = 0; date_idx < dates_size; ++date_idx, ++pillars_iter) {
             const std::map<StrikeType, VolatilityType>& date_strikes = pillars_iter->second;
 
-            for (std::size_t strike_idx = 0; strike_idx < strikes_size; ++strike_idx) {
+            for (u64 strike_idx = 0; strike_idx < strikes_size; ++strike_idx) {
                 auto pillar_iter = date_strikes.lower_bound(strikes_[strike_idx]);
-                const std::size_t k_matrix_output_idx = strikes_size * date_idx + strike_idx;
+                const u64 k_matrix_output_idx = strikes_size * date_idx + strike_idx;
 
                 f64 output_value = 0;
 
