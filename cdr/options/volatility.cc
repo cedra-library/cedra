@@ -1,6 +1,5 @@
 #include <cdr/calendar/date.h>
 #include <cdr/options/volatility.h>
-#include <stdlib.h>
 
 #include <cstring>
 #include <new>  // for std::hardware_destructive_interference_size
@@ -77,13 +76,12 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
     if (!header_ptr_) [[unlikely]]
         return 0.0;
 
-
     const f64 target_t = Period{header_ptr_->today, date}.ActActISDA();
 
     auto strikes = Strikes();
     auto dates = Dates();
 
-    auto it_date = std::lower_bound(dates.begin(), dates.end(), target_t);
+    const auto it_date = std::ranges::lower_bound(dates, target_t);
     std::size_t d1 = 0, d2 = 0;
 
     if (it_date == dates.begin()) {
@@ -95,7 +93,7 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
         d1 = d2 - 1;
     }
 
-    auto it_strike = std::lower_bound(strikes.begin(), strikes.end(), strike);
+    const auto it_strike = std::ranges::lower_bound(strikes, strike);
     std::size_t s1 = 0, s2 = 0;
 
     if (it_strike == strikes.begin()) {
@@ -106,12 +104,12 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
         s2 = std::distance(strikes.begin(), it_strike);
         s1 = s2 - 1;
     }
-    auto get_vol = [&](std::size_t d_idx, std::size_t s_idx) {
+    auto get_vol = [&](const std::size_t d_idx, const std::size_t s_idx) {
         return volatility_ptr_[d_idx * header_ptr_->strikes_size + s_idx];
     };
 
-    f64 vol_at_d1 = Lerp(strike, strikes[s1], get_vol(d1, s1), strikes[s2], get_vol(d1, s2));
-    f64 vol_at_d2 = Lerp(strike, strikes[s1], get_vol(d2, s1), strikes[s2], get_vol(d2, s2));
+    const f64 vol_at_d1 = Lerp(strike, strikes[s1], get_vol(d1, s1), strikes[s2], get_vol(d1, s2));
+    const f64 vol_at_d2 = Lerp(strike, strikes[s1], get_vol(d2, s1), strikes[s2], get_vol(d2, s2));
 
     return Lerp(target_t, dates[d1], vol_at_d1, dates[d2], vol_at_d2);
 }
@@ -217,9 +215,8 @@ inline std::size_t AlignToCacheLine(const std::size_t size) noexcept {
 
                 if (pillar_iter == date_strikes.end()) [[unlikely]] {
                     output_value = std::prev(pillar_iter)->second;
-                } else if (pillar_iter->first == strikes_[strike_idx]) [[unlikely]] {
-                    output_value = pillar_iter->second;
-                } else if (pillar_iter == date_strikes.begin()) [[unlikely]] {
+                } else if (pillar_iter->first == strikes_[strike_idx] || pillar_iter == date_strikes.begin())
+                    [[unlikely]] {
                     output_value = pillar_iter->second;
                 } else [[likely]] {
                     auto [prev_strike, prev_vol] = *std::prev(pillar_iter);
@@ -240,7 +237,7 @@ inline std::size_t AlignToCacheLine(const std::size_t size) noexcept {
 
     VolatilitySurface::SurfaceHeader* old_surface_header_ptr =
         static_cast<VolatilitySurface::SurfaceHeader*>(old_surface_ptr);
-    std::size_t remaining = old_surface_header_ptr->reference_count.fetch_sub(1, std::memory_order_acq_rel);
+    const u64 remaining = old_surface_header_ptr->reference_count.fetch_sub(1, std::memory_order_acq_rel);
 
     if (remaining == 1) {
         free(old_surface_ptr);
