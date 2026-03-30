@@ -15,6 +15,8 @@ using SysDays = std::chrono::sys_days;
 
 namespace cdr {
 
+DateType Today();
+
 DateType NextDay(const DateType& date);
 
 DateType PreviousDay(const DateType& ymd);
@@ -28,6 +30,8 @@ unsigned LastMonthDay(const DateType& date);
 bool IsLastMonthDay(const DateType& date);
 
 void AddMonths(DateType& ymd, unsigned months);
+
+DateType AddDays(const DateType& ymd, unsigned days);
 
 inline constexpr u64 DaysInYear(const DateType& date) {
     return date.year().is_leap() ? 366 : 365;

@@ -6,6 +6,10 @@ cdr_cpp_library(
   SRCS
     "contract.cc"
     "volatility.cc"
+  DEPS
+    cdr::calendar
+    cdr::base
+    cdr::types
   PUBLIC
 )
 
@@ -17,4 +21,18 @@ cdr_cpp_test(
   DEPS
     cdr::options
     GTest::gtest_main
+)
+
+cdr_cpp_executable(
+  NAME
+    volatility_benchmark
+  SRCS
+    "bench_surface.cc"
+  DEPS
+    cdr::options
+    cdr::calendar
+    benchmark::benchmark
+  COPTS
+    "-O3"
+  BENCH
 )

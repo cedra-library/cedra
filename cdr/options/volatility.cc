@@ -76,13 +76,15 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
     if (!header_ptr_) [[unlikely]]
         return 0.0;
 
-    const f64 target_t = Period{header_ptr_->today, date}.ActActISDA();
+    const f64 target_t = Period{header_ptr_->today, date}.Act365();
 
-    auto strikes = Strikes();
-    auto dates = Dates();
+    const auto strikes = Strikes();
+    const auto dates = Dates();
+    const u64 n_strikes = header_ptr_->strikes_size;
 
-    const auto it_date = std::ranges::lower_bound(dates, target_t);
-    u64 d1 = 0, d2 = 0;
+    // 2. Поиск временного интервала [d1, d2]
+    auto it_date = stdr::lower_bound(dates, target_t);
+    u64 d1, d2;
 
     if (it_date == dates.begin()) {
         d1 = d2 = 0;
@@ -93,8 +95,8 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
         d1 = d2 - 1;
     }
 
-    const auto it_strike = std::ranges::lower_bound(strikes, strike);
-    u64 s1 = 0, s2 = 0;
+    auto it_strike = stdr::lower_bound(strikes, strike);
+    u64 s1, s2;
 
     if (it_strike == strikes.begin()) {
         s1 = s2 = 0;
@@ -104,12 +106,15 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
         s2 = std::distance(strikes.begin(), it_strike);
         s1 = s2 - 1;
     }
-    auto get_vol = [&](const u64 d_idx, const u64 s_idx) {
-        return volatility_ptr_[d_idx * header_ptr_->strikes_size + s_idx];
-    };
 
-    const f64 vol_at_d1 = Lerp(strike, strikes[s1], get_vol(d1, s1), strikes[s2], get_vol(d1, s2));
-    const f64 vol_at_d2 = Lerp(strike, strikes[s1], get_vol(d2, s1), strikes[s2], get_vol(d2, s2));
+    const f64* row1 = volatility_ptr_ + (d1 * n_strikes);
+    const f64* row2 = volatility_ptr_ + (d2 * n_strikes);
+
+    f64 vol_at_d1 = (s1 == s2) ? row1[s1] : Lerp(strike, strikes[s1], row1[s1], strikes[s2], row1[s2]);
+
+    if (d1 == d2) return vol_at_d1;
+
+    f64 vol_at_d2 = (s1 == s2) ? row2[s1] : Lerp(strike, strikes[s1], row2[s1], strikes[s2], row2[s2]);
 
     return Lerp(target_t, dates[d1], vol_at_d1, dates[d2], vol_at_d2);
 }
@@ -119,8 +124,7 @@ bool VolatilitySurface::Reclaim() noexcept {
         return false;
     }
 
-    if (const u64 remaining = header_ptr_->reference_count.fetch_sub(1, std::memory_order_acq_rel);
-        remaining == 1) {
+    if (const u64 remaining = header_ptr_->reference_count.fetch_sub(1, std::memory_order_acq_rel); remaining == 1) {
         free(const_cast<SurfaceHeader*>(header_ptr_));
         header_ptr_ = nullptr;
         return true;
@@ -138,7 +142,7 @@ Expect<void, Error> VolatilitySurfaceProvider::AddPillar(const DateType& date, c
 
     strikes_.push_back(strike);
     pillars_[date][strike] = volatility;
-    dates_.push_back(Period{today_, date}.ActActISDA());
+    dates_.push_back(Period{today_, date}.Act365());
 
     return Ok();
 }
@@ -148,7 +152,7 @@ inline u64 AlignToCacheLine(const u64 size) noexcept {
     return (size + cache_line_size) & ~cache_line_size;
 }
 
-[[nodiscard]] Expect<void, Error> VolatilitySurfaceProvider::UpdateSnapshot() noexcept {
+Expect<void, Error> VolatilitySurfaceProvider::UpdateSnapshot() noexcept {
     // Sort and remove duplicates in dates
     stdr::sort(dates_);
     dates_.erase(stdr::unique(dates_).begin(), dates_.end());
@@ -157,24 +161,26 @@ inline u64 AlignToCacheLine(const u64 size) noexcept {
     stdr::sort(strikes_);
     strikes_.erase(stdr::unique(strikes_).begin(), strikes_.end());
 
-    // Precompute offsets and sizes
-    constexpr u64 k_surface_header_size_bytes = sizeof(VolatilitySurface::SurfaceHeader);
-    const u64 k_dates_size_bytes = dates_.size() * sizeof(f64);
-    const u64 k_strikes_size_bytes = strikes_.size() * sizeof(f64);
+    // Compute sizes
+    const u64 header_size = sizeof(VolatilitySurface::SurfaceHeader);
+    const u64 strikes_size_bytes = strikes_.size() * sizeof(f64);
+    const u64 dates_size_bytes = dates_.size() * sizeof(f64);
+    const u64 matrix_size_bytes = dates_.size() * strikes_.size() * sizeof(f64);
 
-    const u64 k_whole_size_bytes =
-        AlignToCacheLine(k_surface_header_size_bytes + k_strikes_size_bytes + k_dates_size_bytes +
-                         dates_.size() * strikes_.size() * sizeof(f64));
+    // Compute aligned offsets
+    const u64 strikes_offset = AlignToCacheLine(header_size);
+    const u64 dates_offset = AlignToCacheLine(strikes_offset + strikes_size_bytes);
+    const u64 matrix_offset = AlignToCacheLine(dates_offset + dates_size_bytes);
+    const u64 total_size = AlignToCacheLine(matrix_offset + matrix_size_bytes);
 
-    // Allocate new buffer
+    // Allocate buffer
     std::byte* buffer_ptr =
-        static_cast<std::byte*>(std::aligned_alloc(std::hardware_destructive_interference_size, k_whole_size_bytes));
-
+        static_cast<std::byte*>(std::aligned_alloc(std::hardware_destructive_interference_size, total_size));
     if (!buffer_ptr) [[unlikely]] {
         return ErrorNoMemory();
     }
 
-    // Fill Header
+    // Fill header
     VolatilitySurface::SurfaceHeader* header = new (buffer_ptr) VolatilitySurface::SurfaceHeader;
     header->magic = VolatilitySurface::kMagicNumber;
     header->today = today_;
@@ -182,67 +188,53 @@ inline u64 AlignToCacheLine(const u64 size) noexcept {
     header->dates_size = dates_.size();
     header->reference_count.store(1, std::memory_order_relaxed);
 
-    header->strikes_byte_offset = AlignToCacheLine(sizeof(VolatilitySurface::SurfaceHeader));
-    header->dates_byte_offset = AlignToCacheLine(header->strikes_byte_offset + k_strikes_size_bytes);
-    header->volatility_byte_offset = AlignToCacheLine(header->dates_byte_offset + k_dates_size_bytes);
+    header->strikes_byte_offset = strikes_offset;
+    header->dates_byte_offset = dates_offset;
+    header->volatility_byte_offset = matrix_offset;
+    header->total_size_in_bytes = total_size;
 
-    header->total_size_in_bytes = k_whole_size_bytes;
+    // Pointers to payload areas
+    f64* strikes_ptr = reinterpret_cast<f64*>(buffer_ptr + strikes_offset);
+    f64* dates_ptr = reinterpret_cast<f64*>(buffer_ptr + dates_offset);
+    f64* volatility_matrix_ptr = reinterpret_cast<f64*>(buffer_ptr + matrix_offset);
 
-    // Acquire pointers to payload buffers
-    f64* strikes_ptr = reinterpret_cast<f64*>(buffer_ptr + header->strikes_byte_offset);
-    f64* dates_ptr = reinterpret_cast<f64*>(buffer_ptr + header->dates_byte_offset);
-    f64* volatility_matrix_ptr = reinterpret_cast<f64*>(buffer_ptr + header->volatility_byte_offset);
+    // Copy strikes and dates
+    std::memcpy(strikes_ptr, strikes_.data(), strikes_size_bytes);
+    std::memcpy(dates_ptr, dates_.data(), dates_size_bytes);
 
-    // Fill strikes and dates
-    std::memcpy(strikes_ptr, strikes_.data(), strikes_.size() * sizeof(f64));
-    std::memcpy(dates_ptr, dates_.data(), dates_.size() * sizeof(f64));
+    // Fill volatility matrix (unchanged logic)
+    const u64 strikes_size = strikes_.size();
+    const u64 dates_size = dates_.size();
+    auto pillars_iter = pillars_.cbegin();
 
-    // Fill volatility matrix
-    {
-        const u64 strikes_size = strikes_.size();
-        const u64 dates_size = dates_.size();
+    for (u64 date_idx = 0; date_idx < dates_size; ++date_idx, ++pillars_iter) {
+        const auto& date_strikes = pillars_iter->second;
+        for (u64 strike_idx = 0; strike_idx < strikes_size; ++strike_idx) {
+            const u64 matrix_idx = strikes_size * date_idx + strike_idx;
+            auto pillar_iter = date_strikes.lower_bound(strikes_[strike_idx]);
 
-        auto pillars_iter = pillars_.cbegin();
-
-        for (u64 date_idx = 0; date_idx < dates_size; ++date_idx, ++pillars_iter) {
-            const std::map<StrikeType, VolatilityType>& date_strikes = pillars_iter->second;
-
-            for (u64 strike_idx = 0; strike_idx < strikes_size; ++strike_idx) {
-                auto pillar_iter = date_strikes.lower_bound(strikes_[strike_idx]);
-                const u64 k_matrix_output_idx = strikes_size * date_idx + strike_idx;
-
-                f64 output_value = 0;
-
-                if (pillar_iter == date_strikes.end()) [[unlikely]] {
-                    output_value = std::prev(pillar_iter)->second;
-                } else if (pillar_iter->first == strikes_[strike_idx] || pillar_iter == date_strikes.begin())
-                    [[unlikely]] {
-                    output_value = pillar_iter->second;
-                } else [[likely]] {
-                    auto [prev_strike, prev_vol] = *std::prev(pillar_iter);
-                    auto [curr_strike, curr_vol] = *pillar_iter;
-                    output_value = Lerp(strikes_[strike_idx], prev_strike, prev_vol, curr_strike, curr_vol);
-                }
-
-                volatility_matrix_ptr[k_matrix_output_idx] = output_value;
+            f64 output_value = 0.0;
+            if (pillar_iter == date_strikes.end()) {
+                output_value = std::prev(pillar_iter)->second;
+            } else if (pillar_iter->first == strikes_[strike_idx] || pillar_iter == date_strikes.begin()) {
+                output_value = pillar_iter->second;
+            } else {
+                auto [prev_strike, prev_vol] = *std::prev(pillar_iter);
+                auto [curr_strike, curr_vol] = *pillar_iter;
+                output_value = Lerp(strikes_[strike_idx], prev_strike, prev_vol, curr_strike, curr_vol);
             }
+            volatility_matrix_ptr[matrix_idx] = output_value;
         }
     }
 
+    // Swap the new surface
     void* old_surface_ptr = surface_ptr_.exchange(buffer_ptr, std::memory_order_acq_rel);
-
-    if (!old_surface_ptr) [[unlikely]] {
-        return Ok();
+    if (old_surface_ptr) {
+        VolatilitySurface::SurfaceHeader* old_header = static_cast<VolatilitySurface::SurfaceHeader*>(old_surface_ptr);
+        if (old_header->reference_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+            free(old_surface_ptr);
+        }
     }
-
-    VolatilitySurface::SurfaceHeader* old_surface_header_ptr =
-        static_cast<VolatilitySurface::SurfaceHeader*>(old_surface_ptr);
-    const u64 remaining = old_surface_header_ptr->reference_count.fetch_sub(1, std::memory_order_acq_rel);
-
-    if (remaining == 1) {
-        free(old_surface_ptr);
-    }
-
     return Ok();
 }
 
