@@ -73,8 +73,9 @@ inline f64 Lerp(const f64 x, const f64 x1, const f64 y1, const f64 x2, const f64
 }
 
 f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexcept {
-    if (!header_ptr_) [[unlikely]]
+    if (!header_ptr_) [[unlikely]] {
         return 0.0;
+    }
 
     const f64 target_t = Period{header_ptr_->today, date}.Act365();
 
@@ -82,7 +83,6 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
     const auto dates = Dates();
     const u64 n_strikes = header_ptr_->strikes_size;
 
-    // 2. Поиск временного интервала [d1, d2]
     auto it_date = stdr::lower_bound(dates, target_t);
     u64 d1, d2;
 
@@ -110,11 +110,25 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
     const f64* row1 = volatility_ptr_ + (d1 * n_strikes);
     const f64* row2 = volatility_ptr_ + (d2 * n_strikes);
 
-    f64 vol_at_d1 = (s1 == s2) ? row1[s1] : Lerp(strike, strikes[s1], row1[s1], strikes[s2], row1[s2]);
+    f64 vol_at_d1;
+    f64 vol_at_d2;
 
-    if (d1 == d2) return vol_at_d1;
+    if (s1 == s2) [[unlikely]] {
+        vol_at_d1 = row1[s1];
+    } else {
+        vol_at_d1 = Lerp(strike, strikes[s1], row1[s1], strikes[s2], row1[s2]);
+    }
 
-    f64 vol_at_d2 = (s1 == s2) ? row2[s1] : Lerp(strike, strikes[s1], row2[s1], strikes[s2], row2[s2]);
+    if (d1 == d2) [[unlikely]] {
+        return vol_at_d1;
+    }
+
+    
+    if (s1 == s2) [[unlikely]] {
+        vol_at_d2 = row2[s1];
+    } else {
+        vol_at_d2 = Lerp(strike, strikes[s1], row2[s1], strikes[s2], row2[s2]);
+    }
 
     return Lerp(target_t, dates[d1], vol_at_d1, dates[d2], vol_at_d2);
 }
