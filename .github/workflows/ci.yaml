@@ -2,10 +2,11 @@ name: Cedra CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches:
+      - '**'
   pull_request:
-    branches: [ main, develop ]
-
+    branches:
+      - '**'
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -13,10 +14,10 @@ jobs:
       fail-fast: false
       matrix:
         # Combination of compilers and sanitizers
-        compiler: [ {cc: gcc, cxx: g++}, {cc: clang, cxx: clang++} ]
-        sanitizer: [NONE, ASAN, TSAN, UBSAN]
+        compiler: [ { cc: gcc, cxx: g++ }, { cc: clang, cxx: clang++ } ]
+        sanitizer: [ NONE, ASAN, TSAN, UBSAN ]
         exclude:
-          - compiler: {cc: gcc, cxx: g++}
+          - compiler: { cc: gcc, cxx: g++ }
             sanitizer: TSAN
 
     steps:
