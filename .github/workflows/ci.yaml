@@ -1,0 +1,47 @@
+name: Cedra CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Combination of compilers and sanitizers
+        compiler: [ {cc: gcc, cxx: g++}, {cc: clang, cxx: clang++} ]
+        sanitizer: [NONE, ASAN, TSAN, UBSAN]
+        exclude:
+          - compiler: {cc: gcc, cxx: g++}
+            sanitizer: TSAN
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang g++
+
+      - name: Configure CMake
+        env:
+          CC: ${{ matrix.compiler.cc }}
+          CXX: ${{ matrix.compiler.cxx }}
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCDR_WITH_ASAN=${{ matrix.sanitizer == 'ASAN' && 'ON' || 'OFF' }} \
+            -DCDR_WITH_TSAN=${{ matrix.sanitizer == 'TSAN' && 'ON' || 'OFF' }} \
+            -DCDR_WITH_UBSAN=${{ matrix.sanitizer == 'UBSAN' && 'ON' || 'OFF' }} \
+            -DCDR_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run Tests
+        working-directory: build
+        run: ctest --output-on-failure
