@@ -17,6 +17,9 @@ jobs:
         compiler: [ { cc: gcc, cxx: g++ }, { cc: clang, cxx: clang++ } ]
         sanitizer: [ NONE, ASAN, TSAN, UBSAN ]
         exclude:
+          # TSAN with GCC is often unstable in CI environments due to
+          # libtsan version mismatches and high memory consumption.
+          # Clang's TSAN is more mature and sufficient for data race detection.
           - compiler: { cc: gcc, cxx: g++ }
             sanitizer: TSAN
 
@@ -41,8 +44,8 @@ jobs:
             -DCDR_BUILD_TESTS=ON
 
       - name: Build
-        run: cmake --build build
+        run: cmake --build build -j 2
 
       - name: Run Tests
         working-directory: build
-        run: ctest --output-on-failure
+        run: ctest --output-on-failure -j 2
