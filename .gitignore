@@ -3,3 +3,6 @@ build
 .idea
 .vscode
 cmake-build-debug
+build-asan
+build-tsan
+build-ubsan

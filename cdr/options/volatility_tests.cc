@@ -1,7 +1,8 @@
+#include <cdr/calendar/date.h>
+#include <cdr/options/volatility.h>
 #include <gtest/gtest.h>
 
-#include <cdr/options/volatility.h>
-#include <cdr/calendar/date.h>
+#include <random>
 
 TEST(VolatilityTest, SanityCheck) {
     cdr::DateType kToday = cdr::Today();
@@ -141,4 +142,65 @@ TEST(VolatilityMathTest, DegenerateGridSinglePillar) {
     EXPECT_NEAR(surface.Volatility(t1, 50.0), 0.15, 1e-7);
     EXPECT_NEAR(surface.Volatility(t1, 100.0), 0.15, 1e-7);
     EXPECT_NEAR(surface.Volatility(t1, 200.0), 0.15, 1e-7);
+}
+
+TEST(VolatilityRCU, SnapshotSanity) {
+    const cdr::DateType today = cdr::Today();
+    cdr::VolatilitySurfaceProvider vsp{today};
+
+    static const double kSpotPrice = 100.0;
+
+    std::random_device seed_source{};
+
+    std::default_random_engine strike_val_gen{seed_source()};
+    std::default_random_engine volatility_val_gen{seed_source()};
+    std::default_random_engine dates_num_gen{seed_source()};
+    std::default_random_engine strikes_num_gen{seed_source()};
+
+    std::uniform_real_distribution<> random_strike_value{0.5 * kSpotPrice, 1.5 * kSpotPrice};
+    std::uniform_real_distribution<> random_volatility_value{0.05, 0.80};
+
+    std::uniform_int_distribution<> random_dates_amount{10, 100};
+    std::uniform_int_distribution<> random_strikes_amount{10, 100};
+
+    {
+        const auto provided = vsp.ProvideSnapshot();
+        EXPECT_FALSE(provided) << "We didn't add pillars";
+        ASSERT_EQ(provided.GetFailure(), cdr::Error::NoData) << "We didn't add pillars -> no data";
+    }
+
+    for (int iteration = 0; iteration < 100; iteration++) {
+        std::vector<std::tuple<DateType, double, double>> pillars;
+        pillars.reserve(100);
+
+        cdr::DateType t1 = today;
+
+
+        for (int days_offset = 0; days_offset < random_dates_amount(dates_num_gen); days_offset++) {
+            t1 = cdr::AddDays(t1, days_offset);
+
+            for (int j = 0; j < random_strikes_amount(strikes_num_gen); j++) {
+                double pillar_strike = random_strike_value(strike_val_gen);
+                double pillar_volatility = random_volatility_value(volatility_val_gen);
+                pillars.emplace_back(t1, pillar_strike, pillar_volatility);
+
+                cdr::Expect<void, cdr::Error> added = vsp.AddPillar(t1, pillar_strike, pillar_volatility);
+                EXPECT_TRUE(added.Succeed()) << "Shouldn't fail";
+            }
+        }
+
+        {
+            cdr::Expect<void, cdr::Error> snapshot_updated = vsp.UpdateSnapshot();
+            ASSERT_TRUE(snapshot_updated.Succeed()) << "Data inserted -> snapshot should be constructed correctly: "
+                                                    << cdr::ErrorAsStringView(snapshot_updated);
+        }
+
+        cdr::Expect<cdr::VolatilitySurface, cdr::Error> snapshot_provided = vsp.ProvideSnapshot();
+        ASSERT_TRUE(snapshot_provided) << "Update was successful, expected correct providing of snapshot"
+                                       << cdr::ErrorAsStringView(snapshot_provided);
+
+        for (const auto& [date, strike, expected_volatility] : pillars) {
+            EXPECT_NEAR(snapshot_provided.Value().Volatility(date, strike), expected_volatility, 1e-7) << "Not match";
+        }
+    }
 }

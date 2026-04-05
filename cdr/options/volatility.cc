@@ -84,7 +84,8 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
     const u64 n_strikes = header_ptr_->strikes_size;
 
     auto it_date = stdr::lower_bound(dates, target_t);
-    u64 d1, d2;
+    u64 d1{};
+    u64 d2{};
 
     if (it_date == dates.begin()) {
         d1 = d2 = 0;
@@ -110,8 +111,8 @@ f64 VolatilitySurface::Volatility(const DateType& date, f64 strike) const noexce
     const f64* row1 = volatility_ptr_ + (d1 * n_strikes);
     const f64* row2 = volatility_ptr_ + (d2 * n_strikes);
 
-    f64 vol_at_d1;
-    f64 vol_at_d2;
+    f64 vol_at_d1{};
+    f64 vol_at_d2{};
 
     if (s1 == s2) [[unlikely]] {
         vol_at_d1 = row1[s1];
@@ -176,7 +177,7 @@ Expect<void, Error> VolatilitySurfaceProvider::UpdateSnapshot() noexcept {
     strikes_.erase(stdr::unique(strikes_).begin(), strikes_.end());
 
     // Compute sizes
-    const u64 header_size = sizeof(VolatilitySurface::SurfaceHeader);
+    constexpr u64 header_size = sizeof(VolatilitySurface::SurfaceHeader);
     const u64 strikes_size_bytes = strikes_.size() * sizeof(f64);
     const u64 dates_size_bytes = dates_.size() * sizeof(f64);
     const u64 matrix_size_bytes = dates_.size() * strikes_.size() * sizeof(f64);
@@ -196,7 +197,7 @@ Expect<void, Error> VolatilitySurfaceProvider::UpdateSnapshot() noexcept {
 
     // Fill header
     VolatilitySurface::SurfaceHeader* header = new (buffer_ptr) VolatilitySurface::SurfaceHeader;
-    header->magic = VolatilitySurface::kMagicNumber;
+    header->magic_number = VolatilitySurface::kMagicNumber;
     header->today = today_;
     header->strikes_size = strikes_.size();
     header->dates_size = dates_.size();
@@ -260,6 +261,19 @@ Expect<VolatilitySurface, Error> VolatilitySurfaceProvider::ProvideSnapshot() co
     static_cast<VolatilitySurface::SurfaceHeader*>(data_ptr)->reference_count.fetch_add(1, std::memory_order_acq_rel);
 
     return cdr::Ok<VolatilitySurface>(std::in_place, data_ptr);
+}
+
+VolatilitySurfaceProvider::~VolatilitySurfaceProvider() {
+    void* surface_ptr = surface_ptr_.exchange(nullptr, std::memory_order_acq_rel);
+    if (!surface_ptr) [[unlikely]] {
+        return;
+    }
+
+    VolatilitySurface::SurfaceHeader* header = static_cast<VolatilitySurface::SurfaceHeader*>(surface_ptr);
+    const u64 old_refs = header->reference_count.fetch_sub(1, std::memory_order_acq_rel);
+    if (old_refs == 1) {
+        free(surface_ptr);
+    }
 }
 
 }  // namespace cdr

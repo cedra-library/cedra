@@ -2,9 +2,8 @@
 #include <cdr/types/expect.h>
 
 namespace cdr {
-
 enum class Error {
-    ConractWithoutNPV = 0,
+    ContractWithoutNPV = 0,
     ContractWithoutUnderlyingAsset,
     ContractWithoutExpirationDate,
     ContractWithoutType,
@@ -18,7 +17,7 @@ enum class Error {
 };
 
 inline Failure<Error> ErrorContractWithoutNPV() {
-    return Failure<Error>(Error::ConractWithoutNPV);
+    return Failure<Error>(Error::ContractWithoutNPV);
 }
 
 inline Failure<Error> ErrorContractWithoutUnderlyingAsset() {
@@ -55,6 +54,32 @@ inline Failure<Error> ErrorNoMemory() {
 
 inline Failure<Error> ErrorNoData() {
     return Failure<Error>(Error::NoData);
+}
+
+[[nodiscard]] constexpr std::string_view ErrorAsStringView(const Error error) noexcept {
+    switch (error) {
+    case Error::ContractWithoutNPV:               return "Contract without NPV";
+    case Error::ContractWithoutUnderlyingAsset:  return "Contract without underlying asset";
+    case Error::ContractWithoutExpirationDate:   return "Contract without expiration date";
+    case Error::ContractWithoutType:             return "Contract without type";
+    case Error::ContractWithoutStyle:            return "Contract without style";
+    case Error::ContractWithoutStrike:           return "Contract without strike";
+    case Error::NegativeStrike:                  return "Negative strike price";
+    case Error::DateInAPast:                     return "Date is in the past";
+    case Error::NoMemory:                        return "Out of memory";
+    case Error::NoData:                          return "No data available";
+    case Error::__NumberOfErrors:                [[fallthrough]];
+    default:                                     return "Unknown error";
+    }
+}
+
+[[nodiscard]] constexpr std::string_view ErrorAsStringView(Failure<Error> failure) noexcept {
+    return ErrorAsStringView(failure.Value());
+}
+
+template<typename T>
+[[nodiscard]] constexpr std::string_view ErrorAsStringView(const Expect<T, Error>& failure) noexcept {
+    return ErrorAsStringView(failure.GetFailure());
 }
 
 } // namespace cdr

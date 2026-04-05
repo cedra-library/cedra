@@ -19,7 +19,7 @@ public:
     static constexpr u32 kMagicNumber = 0xE1A0F12E;
 
     struct SurfaceHeader {
-        u32 magic;
+        u32 magic_number;
         DateType today;
         static_assert(sizeof(DateType) == sizeof(u32));
 
@@ -88,8 +88,7 @@ public:
 
     [[nodiscard]] Expect<void, Error> UpdateSnapshot() noexcept;
 
-    // TODO: Destructor
-
+    ~VolatilitySurfaceProvider();
 private:
     std::map<DateType, std::map<StrikeType, VolatilityType>> pillars_;
     std::vector<StrikeType> strikes_;

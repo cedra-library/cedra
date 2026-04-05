@@ -27,7 +27,7 @@ cdr_cpp_executable(
   NAME
     volatility_benchmark
   SRCS
-    "bench_surface.cc"
+    "volatility_bench.cc"
   DEPS
     cdr::options
     cdr::calendar
