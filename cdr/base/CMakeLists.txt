@@ -12,3 +12,16 @@ cdr_cpp_library(
     cdr::types
   PUBLIC
 )
+
+cdr_cpp_executable(
+  NAME
+    generator_benchmark
+  SRCS
+    "internal/generator_impl_bench.cc"
+  DEPS
+    cdr::base
+    benchmark::benchmark
+  COPTS
+    "-O3"
+  BENCH
+)

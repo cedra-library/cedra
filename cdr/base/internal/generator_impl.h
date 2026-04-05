@@ -181,9 +181,9 @@ public:
     public:
         using iterator_category = std::input_iterator_tag;
         using value_type        = typename promise_type::ExpectType;
-        using DifferenceType    = std::ptrdiff_t;
-        using Pointer           = value_type*;
-        using Reference         = value_type;
+        using difference_type    = std::ptrdiff_t;
+        using pointer           = value_type*;
+        using reference         = value_type;
 
     public:
         Iterator() noexcept
@@ -198,7 +198,7 @@ public:
             }
         }
 
-        Reference operator*() const noexcept {
+        reference operator*() const noexcept {
             CDR_CHECK(promise_ != nullptr);
             return promise_->parent_or_leaf_->Result();
         }
