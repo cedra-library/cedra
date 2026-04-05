@@ -204,3 +204,155 @@ TEST(VolatilityRCU, SnapshotSanity) {
         }
     }
 }
+
+
+namespace {
+
+constexpr double kEps = 1e-12;
+
+}  // namespace
+
+TEST(VolatilityRCU, ReferenceCountLifecycleSingleThread) {
+    const cdr::DateType today = cdr::Today();
+    cdr::VolatilitySurfaceProvider provider{today};
+
+    const cdr::DateType t1 = cdr::AddDays(today, 10);
+    provider.AddPillar(t1, 100.0, 0.10).OrCrashProgram();
+    provider.AddPillar(t1, 110.0, 0.15).OrCrashProgram();
+    provider.AddPillar(t1, 120.0, 0.20).OrCrashProgram();
+
+    ASSERT_TRUE(provider.UpdateSnapshot());
+    auto snapshot_res = provider.ProvideSnapshot();
+    ASSERT_TRUE(snapshot_res.Succeed());
+    cdr::VolatilitySurface surface = std::move(snapshot_res).Value();
+
+    // Provider keeps one reference, the returned snapshot adds one more.
+    EXPECT_EQ(surface.Header().reference_count.load(std::memory_order_acquire), 2u);
+    EXPECT_EQ(surface.Header().magic_number, cdr::VolatilitySurface::kMagicNumber);
+
+    {
+        cdr::VolatilitySurface copy = surface;
+        EXPECT_EQ(surface.Header().reference_count.load(std::memory_order_acquire), 3u);
+        EXPECT_NEAR(copy.Volatility(t1, 110.0), 0.15, kEps);
+
+        {
+            cdr::VolatilitySurface moved = std::move(copy);
+            EXPECT_EQ(surface.Header().reference_count.load(std::memory_order_acquire), 3u);
+            EXPECT_NEAR(moved.Volatility(t1, 100.0), 0.10, kEps);
+        }
+
+        EXPECT_EQ(surface.Header().reference_count.load(std::memory_order_acquire), 2u);
+    }
+
+    EXPECT_EQ(surface.Header().reference_count.load(std::memory_order_acquire), 2u);
+}
+
+TEST(VolatilityRCU, OldSnapshotSurvivesProviderUpdateAndDestruction) {
+    const cdr::DateType today = cdr::Today();
+    const cdr::DateType t1 = cdr::AddDays(today, 10);
+    const cdr::DateType t2 = cdr::AddDays(today, 20);
+
+    std::optional<cdr::VolatilitySurface> old_snapshot;
+
+    {
+        cdr::VolatilitySurfaceProvider provider{today};
+
+        provider.AddPillar(t1, 100.0, 0.10).OrCrashProgram();
+        provider.AddPillar(t1, 120.0, 0.20).OrCrashProgram();
+        ASSERT_TRUE(provider.UpdateSnapshot());
+
+        auto first_res = provider.ProvideSnapshot();
+        ASSERT_TRUE(first_res.Succeed());
+        old_snapshot.emplace(std::move(first_res).Value());
+
+        EXPECT_NEAR(old_snapshot->Volatility(t1, 100.0), 0.10, kEps);
+        EXPECT_NEAR(old_snapshot->Volatility(t1, 110.0), 0.15, kEps);
+
+        // Rebuild the provider data and swap in a new snapshot.
+        provider.AddPillar(t1, 100.0, 0.55).OrCrashProgram();
+        provider.AddPillar(t1, 120.0, 0.75).OrCrashProgram();
+        provider.AddPillar(t2, 100.0, 0.65).OrCrashProgram();
+        provider.AddPillar(t2, 120.0, 0.85).OrCrashProgram();
+        ASSERT_TRUE(provider.UpdateSnapshot());
+
+        auto second_res = provider.ProvideSnapshot();
+        ASSERT_TRUE(second_res.Succeed());
+        cdr::VolatilitySurface new_snapshot = std::move(second_res).Value();
+
+        EXPECT_NEAR(old_snapshot->Volatility(t1, 100.0), 0.10, kEps);
+        EXPECT_NEAR(old_snapshot->Volatility(t1, 120.0), 0.20, kEps);
+
+        EXPECT_NEAR(new_snapshot.Volatility(t1, 100.0), 0.55, kEps);
+        EXPECT_NEAR(new_snapshot.Volatility(t1, 120.0), 0.75, kEps);
+        EXPECT_NEAR(new_snapshot.Volatility(t2, 100.0), 0.65, kEps);
+        EXPECT_NEAR(new_snapshot.Volatility(t2, 120.0), 0.85, kEps);
+    }
+
+    // Provider is already destroyed here; the old snapshot must still be valid.
+    ASSERT_TRUE(old_snapshot.has_value());
+    EXPECT_NEAR(old_snapshot->Volatility(t1, 100.0), 0.10, kEps);
+    EXPECT_NEAR(old_snapshot->Volatility(t1, 110.0), 0.15, kEps);
+}
+
+TEST(VolatilityRCU, ConcurrentCopyAndDestructionLeavesRefcountBalanced) {
+    const cdr::DateType today = cdr::Today();
+    const cdr::DateType t1 = cdr::AddDays(today, 10);
+
+    cdr::VolatilitySurfaceProvider provider{today};
+    provider.AddPillar(t1, 100.0, 0.10).OrCrashProgram();
+    provider.AddPillar(t1, 110.0, 0.15).OrCrashProgram();
+    provider.AddPillar(t1, 120.0, 0.20).OrCrashProgram();
+
+    ASSERT_TRUE(provider.UpdateSnapshot());
+    auto snapshot_res = provider.ProvideSnapshot();
+    ASSERT_TRUE(snapshot_res.Succeed());
+    cdr::VolatilitySurface surface = std::move(snapshot_res).Value();
+
+    const u32 refcount_before = surface.Header().reference_count.load(std::memory_order_acquire);
+    ASSERT_EQ(refcount_before, 2u);
+
+    constexpr int kThreads = 8;
+    constexpr int kIterations = 5000;
+
+    std::atomic<int> ready{0};
+    std::atomic<bool> start{false};
+    std::atomic<int> failures{0};
+    std::vector<std::thread> threads;
+    threads.reserve(kThreads);
+
+    for (int i = 0; i < kThreads; ++i) {
+        threads.emplace_back([&] {
+            ready.fetch_add(1, std::memory_order_release);
+            while (!start.load(std::memory_order_acquire)) {
+                std::this_thread::yield();
+            }
+
+            for (int i = 0; i < kIterations; ++i) {
+                cdr::VolatilitySurface copy = surface;
+                const double v1 = copy.Volatility(t1, 100.0);
+                const double v2 = copy.Volatility(t1, 120.0);
+                if (std::abs(v1 - 0.10) > kEps || std::abs(v2 - 0.20) > kEps) {
+                    failures.fetch_add(1, std::memory_order_relaxed);
+                }
+
+                cdr::VolatilitySurface moved = std::move(copy);
+                const double vm = moved.Volatility(t1, 110.0);
+                if (std::abs(vm - 0.15) > kEps) {
+                    failures.fetch_add(1, std::memory_order_relaxed);
+                }
+            }
+        });
+    }
+
+    while (ready.load(std::memory_order_acquire) < kThreads) {
+        std::this_thread::yield();
+    }
+    start.store(true, std::memory_order_release);
+
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    EXPECT_EQ(failures.load(std::memory_order_acquire), 0);
+    EXPECT_EQ(surface.Header().reference_count.load(std::memory_order_acquire), refcount_before);
+}
