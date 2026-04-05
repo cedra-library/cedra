@@ -2,7 +2,8 @@
 #include <cdr/options/volatility.h>
 
 #include <cstring>
-#include <new>  // for std::hardware_destructive_interference_size
+#include <new>
+#include <cdr/base/hardware_interference_size.h>
 
 namespace stdr = std::ranges;
 
@@ -163,7 +164,7 @@ Expect<void, Error> VolatilitySurfaceProvider::AddPillar(const DateType& date, c
 }
 
 inline u64 AlignToCacheLine(const u64 size) noexcept {
-    static constexpr u64 cache_line_size = std::hardware_destructive_interference_size - 1;
+    static constexpr u64 cache_line_size = kHardwareDestructiveInterferenceSize - 1;
     return (size + cache_line_size) & ~cache_line_size;
 }
 
@@ -190,7 +191,7 @@ Expect<void, Error> VolatilitySurfaceProvider::UpdateSnapshot() noexcept {
 
     // Allocate buffer
     std::byte* buffer_ptr =
-        static_cast<std::byte*>(std::aligned_alloc(std::hardware_destructive_interference_size, total_size));
+        static_cast<std::byte*>(std::aligned_alloc(kHardwareDestructiveInterferenceSize, total_size));
     if (!buffer_ptr) [[unlikely]] {
         return ErrorNoMemory();
     }
