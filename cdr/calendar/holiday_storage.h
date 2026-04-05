@@ -95,7 +95,7 @@ public:
         return HolidayStorageDeclarativeInit{this};
     }
 
-    Generator<DateType> BuisnessDays(Generator<DateType> dates, const std::string& jur,
+    Generator<DateType, Error> BuisnessDays(Generator<DateType> dates, std::string jur,
                                      DateRollingRule adjustment = DateRollingRule::kFollowing) const;
 
     DateType AdjustWorkDay(const std::string& jur, DateType date, DateRollingRule adj) const;

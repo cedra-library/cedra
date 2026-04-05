@@ -107,8 +107,9 @@ void IrsContract::ApplyCurve(Curve* curve) noexcept {
     std::optional<DateType> since = std::nullopt;
     std::optional<DateType> until = std::nullopt;
 
-    for (DateType date : hs.BuisnessDays(period.WithFrequency(fixed_freq_.value()), jur, rule)) {
-        since = std::exchange(until, date);
+    for (const auto& date : hs.BuisnessDays(period.WithFrequency(fixed_freq_.value()), jur, rule)) {
+        // TODO: check that date provided
+        since = std::exchange(until, date.Value());
         if (!since) [[unlikely]] {
             continue;
         }
@@ -126,8 +127,9 @@ void IrsContract::ApplyCurve(Curve* curve) noexcept {
     until = std::nullopt;
     u64 fixed_last = sched.size();
 
-    for (DateType date : hs.BuisnessDays(period.WithFrequency(float_freq_.value()), jur, rule)) {
-        since = std::exchange(until, date);
+    for (const auto& date : hs.BuisnessDays(period.WithFrequency(float_freq_.value()), jur, rule)) {
+        // TODO: check that date provided
+        since = std::exchange(until, date.Value());
         if (!since) [[unlikely]] {
             continue;
         }

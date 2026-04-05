@@ -17,6 +17,7 @@ cdr_cpp_test(
       "date_test.cc"
     DEPS
       cdr::calendar
+      cdr::base
       GTest::gtest_main
       GTest::gmock
 )

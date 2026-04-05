@@ -2,6 +2,7 @@ cdr_cpp_library(
   NAME base
   HDRS
     "generator.h"
+    "internal/generator_impl.h"
     "check.h"
     "internal/check_impl.h"
     "hardware_interference_size.h"

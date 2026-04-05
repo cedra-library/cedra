@@ -336,6 +336,11 @@ public:
         return std::move(error);
     }
 
+
+    constexpr Failure<Err> PropagateFailure() && {
+        return Failure(std::move(error));
+    }
+
     constexpr operator bool() const {
         return Succeed();
     }
@@ -454,6 +459,10 @@ public:
     template<NonVoid T>
     consteval bool operator==(const Success<T>& other) const noexcept {
         return false;
+    }
+
+    constexpr Failure<Err> PropagateFailure() && {
+        return Failure<Err>(std::in_place, std::move(error));
     }
 
 private:
