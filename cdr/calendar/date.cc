@@ -1,5 +1,6 @@
 #include <cdr/calendar/date.h>
 #include <stdexcept>
+#include <array>
 
 namespace chrono = std::chrono;
 
