@@ -3,6 +3,7 @@
 #include <cdr/curve/curve.h>
 #include <cdr/types/errors.h>
 #include <cdr/types/expect.h>
+#include <cdr/options/internal/export.h>
 
 #include <atomic>
 #include <span>
@@ -11,8 +12,7 @@ namespace cdr {
 
 class VolatilitySurfaceProvider;
 
-// TODO: RCU and memory reclamation while swapping atomic pointers
-class VolatilitySurface {
+class CDR_OPTIONS_EXPORT VolatilitySurface {
 public:
     friend class VolatilitySurfaceProvider;
 
@@ -71,7 +71,7 @@ private:
 };
 
 
-class VolatilitySurfaceProvider {
+class CDR_OPTIONS_EXPORT VolatilitySurfaceProvider {
 public:
     using StrikeType = f64;
     using VolatilityType = f64;

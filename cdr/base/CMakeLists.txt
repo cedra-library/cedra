@@ -3,6 +3,7 @@ cdr_cpp_library(
   HDRS
     "generator.h"
     "internal/generator_impl.h"
+    "internal/export.h"
     "check.h"
     "internal/check_impl.h"
     "hardware_interference_size.h"

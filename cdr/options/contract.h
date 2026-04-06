@@ -3,6 +3,7 @@
 #include <cdr/calendar/date.h>
 #include <cdr/types/errors.h>
 #include <cdr/types/expect.h>
+#include <cdr/options/internal/export.h>
 
 #include <optional>
 #include <string>
@@ -20,7 +21,7 @@ enum class OptionStyle {
     AMERICAN,
 };
 
-class OptionContract final {
+class CDR_OPTIONS_EXPORT OptionContract final {
 public:
     OptionContract(const OptionContract&) = delete;
     OptionContract& operator=(const OptionContract&) = delete;
@@ -61,7 +62,7 @@ private:
     f64 strike_price_{};
 };
 
-class OptionContractBuilder final {
+class CDR_OPTIONS_EXPORT OptionContractBuilder final {
 public:
     OptionContractBuilder(OptionStyle style, OptionType type) : type_(type), style_(style) {
     }

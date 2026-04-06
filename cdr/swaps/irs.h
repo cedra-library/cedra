@@ -7,12 +7,13 @@
 #include <cdr/calendar/holiday_storage.h>
 #include <cdr/curve/curve.h>
 #include <cdr/types/concepts.h>
+#include <cdr/swaps/internal/export.h>
 
 namespace cdr {
 
 class IrsBuilder;
 
-class IrsPaymentPeriod final {
+class CDR_SWAPS_EXPORT IrsPaymentPeriod final {
 public:
     static constexpr u32 kNotInitialized = std::numeric_limits<u32>::max();
 
@@ -69,7 +70,7 @@ private:
 };
 
 
-class IrsContract final {
+class CDR_SWAPS_EXPORT IrsContract final {
 public:
     friend class IrsBuilder;
 
@@ -140,7 +141,7 @@ private:
     bool paying_fix_ = false;
 };
 
-class IrsBuilder final {
+class CDR_SWAPS_EXPORT IrsBuilder final {
 public:
     [[maybe_unused]] IrsBuilder& Coupon(Percent p) {
         cpn_ = p;

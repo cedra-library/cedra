@@ -3,6 +3,7 @@ cdr_cpp_library(
   HDRS
     "contract.h"
     "volatility.h"
+    "internal/export.h"
   SRCS
     "contract.cc"
     "volatility.cc"
