@@ -11,6 +11,29 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 list(APPEND CDR_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR})
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+############# SANITIZERS SUPPORT #############
+
+option(CDR_WITH_ASAN "Enable AddressSanitizer" OFF)
+option(CDR_WITH_TSAN "Enable ThreadSanitizer" OFF)
+option(CDR_WITH_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
+
+include(CdrSanitizers)
+
+if(CDR_WITH_ASAN)
+    _cdr_add_sanitizer_interface(cdr_asan_interface address)
+endif()
+
+if(CDR_WITH_TSAN)
+    _cdr_add_sanitizer_interface(cdr_tsan_interface thread)
+endif()
+
+if(CDR_WITH_UBSAN)
+    _cdr_add_sanitizer_interface(cdr_ubsan_interface undefined)
+endif()
+
+##############################################
+
 include(CdrHelpers)
 
 option(CDR_BUILD_TESTS "If ON CDR will build all of cedra's own tests" ON)

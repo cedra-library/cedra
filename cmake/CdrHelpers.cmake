@@ -129,6 +129,11 @@ function(cdr_cpp_library)
         target_link_libraries(${_NAME} INTERFACE ${ARGS_DEPS})
     else()
         add_library(${_NAME} SHARED ${CDR_SOURCES})
+
+        string(TOUPPER ${ARGS_NAME} _NAME_UPPER)
+        set(_EXPORT_MACRO "CDR_${_NAME_UPPER}_BUILD_DLL")
+        target_compile_definitions(${_NAME} PRIVATE "${_EXPORT_MACRO}")
+
         target_include_directories(${_NAME}
             PUBLIC
             "$<BUILD_INTERFACE:${CDR_COMMON_INCLUDE_DIRS}>"
@@ -214,8 +219,21 @@ function(cdr_cpp_test)
     add_executable(${_NAME} ${ARGS_SRCS})
     target_compile_options(${_NAME} PRIVATE ${ARGS_COPTS})
     target_link_libraries(${_NAME} PUBLIC ${ARGS_DEPS})
-    add_test(NAME ${_NAME} COMMAND ${_NAME})
     set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD ${CDR_CXX_STANDARD})
+
+    if(CDR_WITH_ASAN AND TARGET cdr_asan_interface)
+        target_link_libraries(${_NAME} PRIVATE cdr_asan_interface)
+    endif()
+
+    if(CDR_WITH_TSAN AND TARGET cdr_tsan_interface)
+        target_link_libraries(${_NAME} PRIVATE cdr_tsan_interface)
+    endif()
+
+    if(CDR_WITH_UBSAN AND TARGET cdr_ubsan_interface)
+        target_link_libraries(${_NAME} PRIVATE cdr_ubsan_interface)
+    endif()
+
+    add_test(NAME ${_NAME} COMMAND ${_NAME})
 endfunction()
 
 # cdr_cpp_executable()

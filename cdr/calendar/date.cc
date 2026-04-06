@@ -1,9 +1,17 @@
 #include <cdr/calendar/date.h>
 #include <stdexcept>
+#include <array>
 
 namespace chrono = std::chrono;
 
 namespace cdr {
+
+DateType Today() {
+    using namespace std::chrono;
+    const auto now = system_clock::now();
+    const sys_days days_since_epoch = floor<days>(now);
+    return chrono::year_month_day{days_since_epoch};
+}
 
 DateType NextDay(const DateType& ymd) {
     chrono::sys_days days = ymd;
@@ -42,6 +50,10 @@ void AddMonths(DateType& ymd, unsigned months) {
     if (!ymd.ok()) {
         ymd = ymd.year()/ymd.month()/chrono::day{LastMonthDay(ymd)};
     }
+}
+
+DateType AddDays(const DateType& ymd, unsigned days) {
+    return SysDays{ymd} + chrono::days(days);
 }
 
 DateType NextYearBeginning(const DateType& date) {

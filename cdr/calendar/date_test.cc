@@ -13,8 +13,8 @@ TEST(TestPeriod, sanity) {
 
     std::vector<DateType> result;
     result.reserve(10);
-    for (const DateType& date : per.WithFrequency(cdr::Freq::kDaily)) {
-        result.push_back(date);
+    for (const auto& date : per.WithFrequency(cdr::Freq::kDaily)) {
+        result.push_back(date.Value());
     }
 
     EXPECT_THAT(result, testing::ElementsAreArray({

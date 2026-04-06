@@ -1,6 +1,8 @@
 cdr_cpp_library(
     NAME swaps
-    HDRS "irs.h"
+    HDRS
+      "irs.h"
+      "internal/export.h"
     SRCS "irs.cc"
     DEPS
       cdr::types

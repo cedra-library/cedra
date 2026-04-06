@@ -9,10 +9,11 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <cdr/calendar/internal/export.h>
 
 namespace cdr {
 
-class HolidayStorage {
+class CDR_CALENDAR_EXPORT HolidayStorage {
 private:
     using StorageType = std::unordered_map<std::string, std::set<DateType>>;
 
@@ -95,7 +96,7 @@ public:
         return HolidayStorageDeclarativeInit{this};
     }
 
-    Generator<DateType> BuisnessDays(Generator<DateType> dates, const std::string& jur,
+    Generator<DateType, Error> BuisnessDays(Generator<DateType> dates, std::string jur,
                                      DateRollingRule adjustment = DateRollingRule::kFollowing) const;
 
     DateType AdjustWorkDay(const std::string& jur, DateType date, DateRollingRule adj) const;
