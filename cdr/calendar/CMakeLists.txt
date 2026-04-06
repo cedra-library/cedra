@@ -1,6 +1,7 @@
 cdr_cpp_library(
     NAME calendar
     HDRS
+      "internal/export.h"
       "holiday_storage.h"
       "date.h"
       "freq.h"
