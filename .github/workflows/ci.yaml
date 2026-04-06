@@ -15,16 +15,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        compiler:
+          - { cc: gcc, cxx: g++ }
+          - { cc: clang, cxx: clang++ }
+          - { cc: cl, cxx: cl }
         sanitizer: [NONE, ASAN, TSAN, UBSAN]
-        include:
-          # Bind compiler to OS
-          - os: ubuntu-latest
-            compiler: { cc: gcc, cxx: g++ }
-          - os: ubuntu-latest
-            compiler: { cc: clang, cxx: clang++ }
-          - os: windows-latest
-            compiler: { cc: cl, cxx: cl }
         exclude:
+          # Keep MSVC only on Windows
+          - os: ubuntu-latest
+            compiler: { cc: cl, cxx: cl }
+          # Keep GCC/Clang only on Linux
+          - os: windows-latest
+            compiler: { cc: gcc, cxx: g++ }
+          - os: windows-latest
+            compiler: { cc: clang, cxx: clang++ }
           # TSAN doesn't really supported by MSVC
           - os: windows-latest
             sanitizer: TSAN
@@ -48,11 +52,9 @@ jobs:
       - name: Install Dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          # Ninja обычно уже есть, но choco гарантирует наличие
           choco install ninja
 
       - name: Configure CMake
-        # Using bash so ${{ matrix.sanitizer == 'ASAN' && 'ON' || 'OFF' }} should work
         shell: bash
         env:
           CC: ${{ matrix.compiler.cc }}
