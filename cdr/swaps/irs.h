@@ -80,7 +80,7 @@ public:
     }
 
     [[nodiscard]] std::span<const IrsPaymentPeriod> FloatLeg() const noexcept {
-        return {float_leg_, payment_periods_.end().base()};
+        return {float_leg_, payment_periods_.data() + payment_periods_.size()};
     }
 
     [[nodiscard]] DateType GetHorizonDate() const {
@@ -126,7 +126,7 @@ private:
     }
 
     [[nodiscard]] std::span<IrsPaymentPeriod> FloatLegMut() const noexcept {
-        return {float_leg_, payment_periods_.end().base()};
+        return {float_leg_, payment_periods_.data() + payment_periods_.size()};
     }
 
 private:
