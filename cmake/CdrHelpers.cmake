@@ -129,9 +129,11 @@ function(cdr_cpp_library)
         target_link_libraries(${_NAME} INTERFACE ${ARGS_DEPS})
     else()
         add_library(${_NAME} SHARED ${CDR_SOURCES})
-        if(WIN32)
-            set_target_properties(${_NAME} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
-        endif()
+
+        string(TOUPPER ${ARGS_NAME} _NAME_UPPER)
+        set(_EXPORT_MACRO "CDR_${_NAME_UPPER}_BUILD_DLL")
+        target_compile_definitions(${_NAME} PRIVATE "${_EXPORT_MACRO}")
+
         target_include_directories(${_NAME}
             PUBLIC
             "$<BUILD_INTERFACE:${CDR_COMMON_INCLUDE_DIRS}>"
