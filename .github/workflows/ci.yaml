@@ -7,16 +7,29 @@ on:
   pull_request:
     branches:
       - '**'
+
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # Combination of compilers and sanitizers
-        compiler: [ { cc: gcc, cxx: g++ }, { cc: clang, cxx: clang++ } ]
-        sanitizer: [ NONE, ASAN, TSAN, UBSAN ]
+        os: [ubuntu-latest, windows-latest]
+        sanitizer: [NONE, ASAN, TSAN, UBSAN]
+        include:
+          # Bind compiler to OS
+          - os: ubuntu-latest
+            compiler: { cc: gcc, cxx: g++ }
+          - os: ubuntu-latest
+            compiler: { cc: clang, cxx: clang++ }
+          - os: windows-latest
+            compiler: { cc: cl, cxx: cl }
         exclude:
+          # TSAN doesn't really supported by MSVC
+          - os: windows-latest
+            sanitizer: TSAN
+          - os: windows-latest
+            sanitizer: UBSAN
           # TSAN with GCC is often unstable in CI environments due to
           # libtsan version mismatches and high memory consumption.
           # Clang's TSAN is more mature and sufficient for data race detection.
@@ -26,12 +39,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Install Dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build clang g++
 
+      - name: Install Dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          # Ninja обычно уже есть, но choco гарантирует наличие
+          choco install ninja
+
       - name: Configure CMake
+        # Using bash so ${{ matrix.sanitizer == 'ASAN' && 'ON' || 'OFF' }} should work
+        shell: bash
         env:
           CC: ${{ matrix.compiler.cc }}
           CXX: ${{ matrix.compiler.cxx }}
