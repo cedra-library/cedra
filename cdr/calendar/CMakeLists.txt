@@ -8,6 +8,9 @@ cdr_cpp_library(
     SRCS
       "holiday_storage.cc"
       "date.cc"
+    DEPS
+      cdr::base
+      cdr::types
     PUBLIC
 )
 
