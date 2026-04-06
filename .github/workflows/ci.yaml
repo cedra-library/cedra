@@ -34,6 +34,8 @@ jobs:
             sanitizer: TSAN
           - os: windows-latest
             sanitizer: UBSAN
+          - os: windows-latest
+            sanitizer: ASAN
           # TSAN with GCC is often unstable in CI environments due to
           # libtsan version mismatches and high memory consumption.
           # Clang's TSAN is more mature and sufficient for data race detection.
