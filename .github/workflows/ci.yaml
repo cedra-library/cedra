@@ -65,11 +65,12 @@ jobs:
           CXX: ${{ matrix.compiler.cxx }}
         run: |
           cmake -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCDR_WITH_ASAN=${{ matrix.sanitizer == 'ASAN' && 'ON' || 'OFF' }} \
             -DCDR_WITH_TSAN=${{ matrix.sanitizer == 'TSAN' && 'ON' || 'OFF' }} \
             -DCDR_WITH_UBSAN=${{ matrix.sanitizer == 'UBSAN' && 'ON' || 'OFF' }} \
-            -DCDR_BUILD_TESTS=ON
+            -DCDR_BUILD_TESTS=ON \
+            -DCDR_BUILD_BENCH=OFF
 
       - name: Build
         run: cmake --build build -j 2

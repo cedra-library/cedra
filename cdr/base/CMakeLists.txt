@@ -7,6 +7,7 @@ cdr_cpp_library(
     "check.h"
     "internal/check_impl.h"
     "hardware_interference_size.h"
+    "aligned_alloc.h"
   SRCS
     "internal/check_impl.cc"
   DEPS

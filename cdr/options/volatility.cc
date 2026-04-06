@@ -1,9 +1,11 @@
+#include <cdr/base/hardware_interference_size.h>
 #include <cdr/calendar/date.h>
 #include <cdr/options/volatility.h>
 
 #include <cstring>
 #include <new>
-#include <cdr/base/hardware_interference_size.h>
+
+#include <cdr/base/aligned_alloc.h>
 
 namespace stdr = std::ranges;
 
@@ -141,7 +143,7 @@ bool VolatilitySurface::Reclaim() noexcept {
     }
 
     if (const u64 remaining = header_ptr_->reference_count.fetch_sub(1, std::memory_order_acq_rel); remaining == 1) {
-        free(const_cast<SurfaceHeader*>(header_ptr_));
+        cdr::AlignedFree(const_cast<SurfaceHeader*>(header_ptr_));
         header_ptr_ = nullptr;
         return true;
     }
@@ -191,7 +193,7 @@ Expect<void, Error> VolatilitySurfaceProvider::UpdateSnapshot() noexcept {
 
     // Allocate buffer
     std::byte* buffer_ptr =
-        static_cast<std::byte*>(std::aligned_alloc(kHardwareDestructiveInterferenceSize, total_size));
+        static_cast<std::byte*>(cdr::AlignedAlloc(kHardwareDestructiveInterferenceSize, total_size));
     if (!buffer_ptr) [[unlikely]] {
         return ErrorNoMemory();
     }
@@ -248,7 +250,7 @@ Expect<void, Error> VolatilitySurfaceProvider::UpdateSnapshot() noexcept {
     if (old_surface_ptr) {
         VolatilitySurface::SurfaceHeader* old_header = static_cast<VolatilitySurface::SurfaceHeader*>(old_surface_ptr);
         if (old_header->reference_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-            free(old_surface_ptr);
+            cdr::AlignedFree(old_surface_ptr);
         }
     }
     return Ok();
@@ -273,7 +275,7 @@ VolatilitySurfaceProvider::~VolatilitySurfaceProvider() {
     VolatilitySurface::SurfaceHeader* header = static_cast<VolatilitySurface::SurfaceHeader*>(surface_ptr);
     const u64 old_refs = header->reference_count.fetch_sub(1, std::memory_order_acq_rel);
     if (old_refs == 1) {
-        free(surface_ptr);
+        cdr::AlignedFree(surface_ptr);
     }
 }
 
