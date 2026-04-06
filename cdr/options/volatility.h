@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <span>
+#include <cstdlib> // for std::aligned_alloc
 
 namespace cdr {
 
