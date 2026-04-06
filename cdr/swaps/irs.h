@@ -2,6 +2,7 @@
 
 #include <limits>
 #include <optional>
+#include <span>
 #include <cdr/types/percent.h>
 #include <cdr/calendar/date.h>
 #include <cdr/calendar/holiday_storage.h>
