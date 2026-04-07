@@ -2,17 +2,19 @@
 
 #include <limits>
 #include <optional>
+#include <span>
 #include <cdr/types/percent.h>
 #include <cdr/calendar/date.h>
 #include <cdr/calendar/holiday_storage.h>
 #include <cdr/curve/curve.h>
 #include <cdr/types/concepts.h>
+#include <cdr/swaps/internal/export.h>
 
 namespace cdr {
 
 class IrsBuilder;
 
-class IrsPaymentPeriod final {
+class CDR_SWAPS_EXPORT IrsPaymentPeriod final {
 public:
     static constexpr u32 kNotInitialized = std::numeric_limits<u32>::max();
 
@@ -71,7 +73,7 @@ private:
 };
 
 
-class IrsContract final {
+class CDR_SWAPS_EXPORT IrsContract final {
 public:
     enum class Stub {SHORT, LONG};
 public:
@@ -83,7 +85,7 @@ public:
     }
 
     [[nodiscard]] std::span<const IrsPaymentPeriod> FloatLeg() const noexcept {
-        return {float_leg_, payment_periods_.end().base()};
+        return {float_leg_, payment_periods_.data() + payment_periods_.size()};
     }
 
     [[nodiscard]] DateType GetHorizonDate() const {
@@ -129,7 +131,7 @@ private:
     }
 
     [[nodiscard]] std::span<IrsPaymentPeriod> FloatLegMut() const noexcept {
-        return {float_leg_, payment_periods_.end().base()};
+        return {float_leg_, payment_periods_.data() + payment_periods_.size()};
     }
 
 private:
@@ -145,7 +147,7 @@ private:
     bool paying_fix_ = false;
 };
 
-class IrsBuilder final {
+class CDR_SWAPS_EXPORT IrsBuilder final {
 public:
     [[maybe_unused]] IrsBuilder& FixedRate(Percent p) {
         fixed_rate_ = p;
@@ -209,7 +211,7 @@ private:
     std::optional<bool> paying_fix_;
 };
 
-class IrsBuilderExperimental {
+class CDR_SWAPS_EXPORT IrsBuilderExperimental {
 public:
     [[maybe_unused]] IrsBuilderExperimental& TradeDate(const DateType& trade_date) {
         trade_date_ = trade_date;

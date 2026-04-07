@@ -4,13 +4,14 @@
 #include <cdr/types/concepts.h>
 #include <cmath>
 #include <stdexcept>
+#include <cdr/types/internal/export.h>
 
 namespace cdr {
 
-class Percent {
+class CDR_TYPES_EXPORT Percent  {
 private:
-    static struct percentage_tag_t {} percentage_tag;
-    static struct fraction_tag_t {} fraction_tag;
+    static inline struct percentage_tag_t {} percentage_tag;
+    static inline struct fraction_tag_t {} fraction_tag;
 
 public:
 
@@ -177,9 +178,9 @@ private:
 
 inline namespace literals {
 
-Percent operator""_percents(unsigned long long int_value);
+CDR_TYPES_EXPORT Percent operator""_percents(unsigned long long int_value);
 
-Percent operator""_percents(long double float_value);
+CDR_TYPES_EXPORT Percent operator""_percents(long double float_value);
 
 } // namespace literals
 

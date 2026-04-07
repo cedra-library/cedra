@@ -5,7 +5,7 @@
 
 namespace cdr {
 
-struct Linear {
+struct CDR_CURVE_EXPORT Linear {
 public:
     static constexpr bool kStatefulImplementation = false;
 

@@ -3,6 +3,7 @@ cdr_cpp_library(
   HDRS
     "curve.h"
     "interpolation/linear.h"
+    "internal/export.h"
   SRCS
     "curve.cc"
     "interpolation/linear.cc"
@@ -10,6 +11,8 @@ cdr_cpp_library(
     cdr::base
     cdr::calendar
     cdr::math
+    cdr::types
+  PUBLIC
 )
 
 cdr_cpp_test(

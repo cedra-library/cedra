@@ -3,10 +3,11 @@
 #include <sstream>
 #include <string_view>
 #include <cdr/types/integers.h>
+#include <cdr/base/internal/export.h>
 
 namespace cdr::internal {
 
-class CheckImpl {
+class CDR_BASE_EXPORT CheckImpl {
 public:
 
     CheckImpl(bool result, std::string_view condition,

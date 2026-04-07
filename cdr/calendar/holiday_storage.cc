@@ -141,11 +141,14 @@ DateType HolidayStorage::AdvanceDateByConvention(const std::string& jur, DateTyp
     return date;
 }
 
-Generator<DateType> HolidayStorage::BusinessDays(Generator<DateType> dates, const std::string& jur,
+Generator<DateType> HolidayStorage::BusinessDays(Generator<DateType> dates, std::string jur,
                                                  DateRollingRule adjustment) const {
     DateType prev;
-    for (DateType date : dates) {
-        DateType adjusted = AdjustWorkDay(jur, date, adjustment);
+    for (auto date_provided : dates) {
+        if (!date_provided) [[unlikely]] {
+            co_yield std::move(date_provided).PropagateFailure();
+        }
+        DateType adjusted = AdjustWorkDay(jur, date_provided.Value(), adjustment);
         if (adjusted == prev) {
             continue;
         }
