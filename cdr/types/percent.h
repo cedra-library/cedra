@@ -178,9 +178,9 @@ private:
 
 inline namespace literals {
 
-Percent operator""_percents(unsigned long long int_value);
+CDR_TYPES_EXPORT Percent operator""_percents(unsigned long long int_value);
 
-Percent operator""_percents(long double float_value);
+CDR_TYPES_EXPORT Percent operator""_percents(long double float_value);
 
 } // namespace literals
 

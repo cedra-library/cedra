@@ -211,7 +211,7 @@ private:
     std::optional<bool> paying_fix_;
 };
 
-class IrsBuilderExperimental {
+class CDR_SWAPS_EXPORT IrsBuilderExperimental {
 public:
     [[maybe_unused]] IrsBuilderExperimental& TradeDate(const DateType& trade_date) {
         trade_date_ = trade_date;

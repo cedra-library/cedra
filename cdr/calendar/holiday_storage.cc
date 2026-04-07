@@ -103,7 +103,7 @@ DateType HolidayStorage::AdvanceDateByConvention(const std::string& jur, DateTyp
     return date;
 }
 
-Generator<DateType> HolidayStorage::BusinessDays(Generator<DateType> dates, const std::string& jur,
+Generator<DateType> HolidayStorage::BusinessDays(Generator<DateType> dates, std::string jur,
                                                  DateRollingRule adjustment) const {
     DateType prev;
     for (auto date_provided : dates) {
