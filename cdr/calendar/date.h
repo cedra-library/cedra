@@ -9,11 +9,11 @@
 #include <cdr/types/floats.h>
 
 #include <cdr/calendar/internal/export.h>
-
 using DateType = std::chrono::year_month_day;
 using WeekDayType = std::chrono::weekday;
 
 using SysDays = std::chrono::sys_days;
+using DayDiffType = int;
 
 namespace cdr {
 
@@ -25,13 +25,13 @@ CDR_CALENDAR_EXPORT DateType PreviousDay(const DateType& ymd);
 
 CDR_CALENDAR_EXPORT WeekDayType Weekday(const DateType& ymd);
 
-CDR_CALENDAR_EXPORT int DayDifference(const DateType& lhs, const DateType& rhs);
+CDR_CALENDAR_EXPORT DayDiffType DayDifference(const DateType& lhs, const DateType& rhs);
 
 CDR_CALENDAR_EXPORT unsigned LastMonthDay(const DateType& date);
 
 CDR_CALENDAR_EXPORT bool IsLastMonthDay(const DateType& date);
 
-CDR_CALENDAR_EXPORT void AddMonths(DateType& ymd, unsigned months);
+CDR_CALENDAR_EXPORT void AddMonths(DateType& ymd, i32 months);
 
 CDR_CALENDAR_EXPORT DateType AddDays(const DateType& ymd, unsigned days);
 
@@ -68,7 +68,7 @@ struct CDR_CALENDAR_EXPORT Period {
         return until;
     }
 
-    [[nodiscard]] DiffType Days() const noexcept {
+    [[nodiscard]] DayDiffType Days() const noexcept {
         return DayDifference(Until(), Since());
     }
 
