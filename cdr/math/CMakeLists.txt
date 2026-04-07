@@ -7,4 +7,5 @@ cdr_cpp_library(
   DEPS
     cdr::base
     cdr::types
+  PUBLIC # TO MAKE VISIBLE AFTER INSTALLING
 )

@@ -170,12 +170,4 @@ private:
     HolidayStorage* calendar_;
 };
 
-class CurveBuilder {
-public:
-
-private:
-    std::optional<Curve*> parent_;
-    std::optional<std::string> jurisdiction_;
-};
-
 }  // namespace cdr
