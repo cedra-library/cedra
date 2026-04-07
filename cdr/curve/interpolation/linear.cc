@@ -1,9 +1,11 @@
 #include <cdr/curve/interpolation/linear.h>
 #include <cdr/calendar/date.h>
 #include <chrono>
+#include <numeric>
 
 namespace cdr {
 
+/* static */
 cdr::Percent Linear::Interpolate(const cdr::Curve::PointsContainer& points, const DateType& date,
                                 const HolidayStorage& hs, const std::string& jur)
 {

@@ -11,14 +11,14 @@ namespace cdr {
 [[nodiscard]] std::optional<f64> IrsContract::NPV(Curve *curve) const noexcept {
     auto pv_fixed = PVFixed(curve);
     auto pv_float = PVFloat(curve);
-    if (!pv_fixed.has_value() || !pv_float.has_value()) {
+    if (!pv_fixed.has_value() || !pv_float.has_value()) [[unlikely]] {
         return std::nullopt;
     }
-    f64 res = *pv_float - *pv_fixed;
-    if (PayFix()) [[likely]] {
-        return res;
+    std::optional<f64> res = std::make_optional<f64>(*pv_float - *pv_fixed);
+    if (!PayFix()) [[unlikely]] {
+        *res *= -1;
     }
-    return -res;
+    return res;
 }
 
 [[nodiscard]] std::optional<f64> IrsContract::PVFixed(Curve *curve) const noexcept {

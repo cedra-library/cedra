@@ -1,4 +1,5 @@
 add_subdirectory(types)
+add_subdirectory(math)
 add_subdirectory(calendar)
 add_subdirectory(curve)
 add_subdirectory(base)
