@@ -52,8 +52,6 @@ constexpr struct EternityBeforeType {} EternityBefore;
 constexpr struct EternityAfterType {} EternityAfter;
 
 struct CDR_CALENDAR_EXPORT Period {
-    using DiffType = i32;
-
     DateType since;
     DateType until;
 

@@ -21,7 +21,7 @@ f64 Derivative(const Fun& target, f64 point)
 
 template <typename Fun>
 requires std::invocable<Fun, f64> && std::same_as<std::invoke_result_t<Fun, f64>, f64>
-std::optional<f64> CDR_MATH_EXPORT FindRoot(const Fun& target, f64 left_bound, f64 right_bound, std::optional<f64> start_point)
+std::optional<f64> FindRoot(const Fun& target, f64 left_bound, f64 right_bound, std::optional<f64> start_point)
 {
     const f64 tol = std::exp2(-16);
     [[maybe_unused]] u32 iteration = 0;
