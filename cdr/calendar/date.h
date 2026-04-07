@@ -54,10 +54,6 @@ constexpr struct EternityAfterType {} EternityAfter;
 struct CDR_CALENDAR_EXPORT Period {
     DateType since;
     DateType until;
-public:
-    using DiffType = i32;
-public:
-    Period(const DateType& since, const DateType& until);
 
     [[nodiscard]] bool Valid() const {
         return since.ok() && until.ok() && since <= until;

@@ -10,6 +10,18 @@ enum class Freq {
     kDaily,        // Every day
 };
 
+enum class TimeUnit {
+    Day,
+    Week,
+    Month,
+    Year,
+};
+
+struct Tenor {
+    int number;
+    TimeUnit unit;
+};
+
 enum class DateRollingRule {
     kFollowing,                     // Следующий рабочий день
     kPreceding,                     // Предыдущий рабочий день

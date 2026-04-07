@@ -39,6 +39,9 @@ public:
         }
     }
 
+    Curve(const Curve&) = delete;
+    Curve& operator=(const Curve&) = delete;
+
     struct CurveEasyInit {
         CurveEasyInit& operator()(DateType date, Percent value) {
             parent_->Insert(date, value);
