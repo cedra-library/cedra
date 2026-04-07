@@ -25,6 +25,6 @@ TEST(HStorage, basic) {
     auto buisness_days = hs.BusinessDays(per.WithFrequency(cdr::Freq::kDaily), "RUS");
 
     for (const auto& day : buisness_days) {
-        std::cerr << day << std::endl;
+        std::cerr << day.Value() << std::endl;
     }
 }

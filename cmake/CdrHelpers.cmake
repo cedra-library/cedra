@@ -92,7 +92,7 @@ function(cdr_cpp_library)
     set(multiValueArgs HDRS SRCS DEPS COPTS)
     cmake_parse_arguments(ARGS "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-    set(_NAME "cdr_${ARGS_NAME}")
+    set(_NAME "${ARGS_NAME}")
 
     if (ARGS_NAME STREQUAL "")
         message(FATAL_ERROR "Name of library is required")
@@ -119,7 +119,6 @@ function(cdr_cpp_library)
         set(CDR_LIB_IS_HEADER_ONLY 0)
     endif()
 
-
     if (CDR_LIB_IS_HEADER_ONLY)
         add_library(${_NAME} INTERFACE)
         target_include_directories(${_NAME}
@@ -129,20 +128,45 @@ function(cdr_cpp_library)
         )
         target_link_libraries(${_NAME} INTERFACE ${ARGS_DEPS})
     else()
-        add_library(${_NAME} SHARED ${ARGS_SRCS})
+        add_library(${_NAME} SHARED ${CDR_SOURCES})
+
+        string(TOUPPER ${ARGS_NAME} _NAME_UPPER)
+        set(_EXPORT_MACRO "CDR_${_NAME_UPPER}_BUILD_DLL")
+        target_compile_definitions(${_NAME} PRIVATE "${_EXPORT_MACRO}")
+
         target_include_directories(${_NAME}
             PUBLIC
             "$<BUILD_INTERFACE:${CDR_COMMON_INCLUDE_DIRS}>"
             "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
         )
-
         target_link_libraries(${_NAME} PUBLIC ${ARGS_DEPS})
         target_compile_options(${_NAME} PRIVATE ${ARGS_COPTS})
+        set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD ${CDR_CXX_STANDARD})
     endif()
 
     add_library(cdr::${ARGS_NAME} ALIAS ${_NAME})
-    #TODO: Installation
+
+    if (ARGS_PUBLIC AND CDR_ENABLE_INSTALL)
+        # Install the target and associate it with the export set "CdrTargets"
+        install(TARGETS ${_NAME}
+            EXPORT CdrTargets
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        )
+
+        # Install headers while preserving directory structure
+        foreach(HDR ${ARGS_HDRS})
+            # Get the directory of the current header relative to the project root
+            file(RELATIVE_PATH REL_DIR "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
+
+            # Install to a matching path in the include directory
+            install(FILES ${HDR} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${REL_DIR}")
+        endforeach()
+    endif()
 endfunction()
+
 
 # cdr_cpp_test()
 #
@@ -195,6 +219,20 @@ function(cdr_cpp_test)
     add_executable(${_NAME} ${ARGS_SRCS})
     target_compile_options(${_NAME} PRIVATE ${ARGS_COPTS})
     target_link_libraries(${_NAME} PUBLIC ${ARGS_DEPS})
+    set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD ${CDR_CXX_STANDARD})
+
+    if(CDR_WITH_ASAN AND TARGET cdr_asan_interface)
+        target_link_libraries(${_NAME} PRIVATE cdr_asan_interface)
+    endif()
+
+    if(CDR_WITH_TSAN AND TARGET cdr_tsan_interface)
+        target_link_libraries(${_NAME} PRIVATE cdr_tsan_interface)
+    endif()
+
+    if(CDR_WITH_UBSAN AND TARGET cdr_ubsan_interface)
+        target_link_libraries(${_NAME} PRIVATE cdr_ubsan_interface)
+    endif()
+
     add_test(NAME ${_NAME} COMMAND ${_NAME})
 endfunction()
 
@@ -245,7 +283,7 @@ function(cdr_cpp_executable)
 
     set(_NAME ${ARGS_NAME})
 
-    if (${_NAME} STREQUAL "")
+    if ("${_NAME}" STREQUAL "")
         message(FATAL_ERROR "Name for executable must be provided")
     endif()
 
@@ -256,7 +294,14 @@ function(cdr_cpp_executable)
     add_executable(${_NAME} ${ARGS_SRCS})
     target_compile_options(${_NAME} PRIVATE ${ARGS_COPTS})
     target_link_libraries(${_NAME} PUBLIC ${ARGS_DEPS})
+    set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD ${CDR_CXX_STANDARD})
 
-    # TODO: Installation
+    if (CDR_ENABLE_INSTALL)
+        install(TARGETS ${_NAME}
+            EXPORT CdrTargets
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+            BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR}
+        )
+    endif()
 
 endfunction()

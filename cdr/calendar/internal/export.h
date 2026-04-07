@@ -1,0 +1,9 @@
+#pragma once
+
+#include <cdr/config/exports.h>
+
+#ifdef CDR_CALENDAR_BUILD_DLL
+    #define CDR_CALENDAR_EXPORT CDR_HELPER_DLL_EXPORT
+#else // CDR_CALENDAR_BUILD_DLL
+    #define CDR_CALENDAR_EXPORT CDR_HELPER_DLL_IMPORT
+#endif // CDR_CALENDAR_BUILD_DLL

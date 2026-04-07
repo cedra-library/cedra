@@ -6,6 +6,7 @@
 #include <cdr/calendar/freq.h>
 #include <cdr/calendar/holiday_storage.h>
 #include <cdr/base/check.h>
+#include <cdr/curve/internal/export.h>
 
 #include <functional>
 #include <map>
@@ -23,7 +24,7 @@ concept Contract = requires(T obj, Curve* curve) {
     { std::as_const(obj).NPV(curve) } -> std::same_as<std::optional<f64>>;
 };
 
-class [[nodiscard]] Curve final {
+class [[nodiscard]] CDR_CURVE_EXPORT Curve final {
 public:
     using PointsContainer = std::map<DateType, Percent>;
 public:

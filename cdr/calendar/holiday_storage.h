@@ -9,10 +9,11 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <cdr/calendar/internal/export.h>
 
 namespace cdr {
 
-class HolidayStorage {
+class CDR_CALENDAR_EXPORT HolidayStorage {
 private:
     using StorageType = std::unordered_map<std::string, std::set<DateType>>;
 

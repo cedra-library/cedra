@@ -1,0 +1,5 @@
+function(_cdr_add_sanitizer_interface NAME FLAG)
+    add_library(${NAME} INTERFACE)
+    target_compile_options(${NAME} INTERFACE -fsanitize=${FLAG} -fno-omit-frame-pointer -g)
+    target_link_options(${NAME} INTERFACE -fsanitize=${FLAG})
+endfunction()
