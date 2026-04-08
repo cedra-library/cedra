@@ -8,6 +8,8 @@
 #include <cdr/base/check.h>
 #include <cdr/math/newton_raphson/newton_raphson.h>
 #include <cdr/curve/internal/export.h>
+#include <cdr/market/context.h>
+#include <cdr/fx/fx.h>
 
 #include <functional>
 #include <map>
@@ -16,6 +18,7 @@
 namespace cdr {
 
 class Curve;
+class CurveBuilder;
 using DateType = std::chrono::year_month_day;
 
 template <typename T>
@@ -28,8 +31,10 @@ concept Contract = requires(T obj, Curve* curve) {
 class [[nodiscard]] CDR_CURVE_EXPORT Curve final {
 public:
     using PointsContainer = std::map<DateType, Percent>;
+
+    friend class CurveBuilder;
 public:
-    Curve() = default;
+    Curve(MarketContext& ctx): ctx_(ctx) {};
 
     template <std::input_iterator It>
     Curve(It begin, It end) {
@@ -75,7 +80,7 @@ public:
     void Clear();
 
     template <typename Interpolation, typename... Args>
-    [[nodiscard]] Percent Interpolated(DateType date, Args&&... args) {
+    [[nodiscard]] Percent Interpolated(DateType date, Args&&... args) const {
         if constexpr (Interpolation::kStatefulImplementation) {
             auto args_tuple = std::forward_as_tuple(std::forward<Args>(args)...);
 
@@ -142,15 +147,17 @@ public:
         FindRoot(target, left_df.Fraction(), right_df.Fraction(), std::nullopt);
     }
 
+    void ApplyFXContract(const Curve& other, const ForwardContract& fwd) noexcept;
+
     // Advance current date and all pillars by one buisness day
     void RollForward() noexcept;
 
-    [[nodiscard]] DateType Today() const noexcept {
-        return today_;
+    [[nodiscard]] const DateType& Today() const noexcept {
+        return ctx_.Today();
     }
 
-    [[nodiscard]] HolidayStorage* Calendar() const noexcept {
-        return calendar_;
+    [[nodiscard]] const HolidayStorage& Calendar() const noexcept {
+        return ctx_.Calendar();
     }
 
     [[nodiscard]] const PointsContainer& Pillars() const noexcept {
@@ -167,8 +174,45 @@ private:
 private:
     PointsContainer points_;
     std::string jurisdiction_;
-    DateType today_;
-    HolidayStorage* calendar_;
+    MarketContext& ctx_;
+};
+
+class CurveBuilder {
+public:
+    CurveBuilder(MarketContext& ctx): ctx_(ctx) {};
+
+    template <std::input_iterator Iter>
+    Curve FromContracts(Iter begin, Iter end) {
+        CDR_CHECK(jusrisdiction_.has_value()) << "Jusrisdiction should be set";
+
+        Curve curve;
+        curve.ctx_ = ctx_;
+        curve.jurisdiction_ = std::move(*jurisdiction_);
+
+        for (auto i = begin; i < end; i++) {
+            curve.AdaptToContract(&(*i));
+        }
+
+        return curve;
+    }
+
+    template <std::input_iterator Iter>
+    Curve FromOther(const Curve& other, Iter begin, Iter end) {
+        CDR_CHECK(&ctx_ == &other.ctx_) << "Curves should share market context";
+        CDR_CHECK(jurisdiction_.has_value()) << "Jusrisdiction should be set";
+        CDR_CHECK(jurisdiction_.value() != other.jurisdiction_) << "Same jurisdiction";
+
+        Curve curve(ctx_);
+        curve.jurisdiction_ = std::move(*jurisdiction_);
+
+        for (auto i = begin; i < end; i++) {
+            curve.ApplyFXContract(other, *i);
+        }
+    }
+
+private:
+    std::optional<std::string> jurisdiction_;
+    MarketContext& ctx_;
 };
 
 }  // namespace cdr
