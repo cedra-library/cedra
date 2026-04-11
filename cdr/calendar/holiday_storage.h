@@ -107,7 +107,7 @@ public:
 
     DateType AdvanceDateByTenor(DateType date, Tenor tenor) const;
 
-    DateType AdvanceDateByConvention(const std::string& jur, DateType date, Tenor tenor, DateRollingRule rule) const;
+    DateType AdvanceDateByConvention(const std::string& jur, DateType date, Tenor tenor, DateRollingRule rule = DateRollingRule::kFollowing) const;
 
 private:
     const std::set<DateType>& JurisdictionHolidays(const std::string& jur) const;

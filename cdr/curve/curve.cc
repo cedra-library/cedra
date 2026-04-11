@@ -1,4 +1,5 @@
 #include <cdr/curve/curve.h>
+#include <cdr/curve/interpolation/linear.h>
 
 namespace cdr {
 
@@ -11,9 +12,38 @@ void Curve::Clear() {
 }
 
 void Curve::Insert(DateType when, Percent value) {
-    CDR_CHECK(!calendar_->IsWeekend(jurisdiction_, when))
+    CDR_CHECK(!ctx_.Calendar().IsWeekend(jurisdiction_, when))
         << when << " must be buisness day for [" << jurisdiction_ << "]";
     points_[when] = value;
+}
+
+void Curve::ApplyFXContract(const Curve& other, const ForwardContract& fwd) {
+    CDR_CHECK(fwd.GetPair().first == other.jurisdiction_ || fwd.GetPair().second == other.jurisdiction_)
+        << "Forward contract could not be applied";
+    CDR_CHECK(fwd.GetPair().first == jurisdiction_ || fwd.GetPair().second == jurisdiction_)
+        << "Forward contract could not be applied";
+
+    f64 price = fwd.GetPrice();
+    if (fwd.GetPair().second == jurisdiction_) {
+        price = 1. / price;
+    }
+
+    DateType settlement = ctx_.Calendar().AdvanceDateByConvention(jurisdiction_, fwd.GetTradeDate(), fwd.GetTenor());
+    DateType spot_date = ctx_.SpotDate(fwd.GetPair());
+
+    PointsContainer::iterator node;
+    if (auto iter = points_.lower_bound(settlement);
+        iter == points_.end() || iter->first != settlement) [[likely]] {
+        node = points_.emplace_hint(iter, settlement, Percent::Zero());
+    } else {
+        node = iter;
+    }
+
+    Percent rate_d = other.Interpolated<Linear>(spot_date, ctx_.Calendar(), other.jurisdiction_);
+    f64 spot_price = ctx_.FxSpot(fwd.GetPair());
+
+    Percent rate_f = rate_d - Percent::FromFraction(std::log(spot_price / fwd.GetPrice()) / DayCountFraction({spot_date, settlement}));
+    node->second = rate_f;
 }
 
 void Curve::RollForward() noexcept {
