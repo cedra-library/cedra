@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cdr/calendar/date.h>
+#include <cdr/types/options.h>
 #include <cdr/types/errors.h>
 #include <cdr/types/expect.h>
 #include <cdr/options/internal/export.h>
@@ -10,16 +11,6 @@
 
 namespace cdr {
 class OptionContractBuilder;
-
-enum class OptionType {
-    CALL,
-    PUT,
-};
-
-enum class OptionStyle {
-    EUROPEAN,
-    AMERICAN,
-};
 
 class CDR_OPTIONS_EXPORT OptionContract final {
 public:
