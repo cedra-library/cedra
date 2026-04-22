@@ -7,6 +7,8 @@ cdr_cpp_library(
     "floats.h"
     "types.h"
     "expect.h"
+    "jurisdiction.h"
+    "options.h"
   SRCS
     "percent.cc"
   PUBLIC

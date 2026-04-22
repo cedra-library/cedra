@@ -1,6 +1,7 @@
 cdr_cpp_library(
   NAME options
   HDRS
+    "helpers.h"
     "contract.h"
     "volatility.h"
     "internal/export.h"
