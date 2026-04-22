@@ -12,6 +12,8 @@ cdr_cpp_library(
     cdr::calendar
     cdr::math
     cdr::types
+    cdr::fx
+    cdr::market
   PUBLIC
 )
 
