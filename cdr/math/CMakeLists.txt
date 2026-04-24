@@ -18,3 +18,12 @@ cdr_cpp_test(
     cdr::math
     GTest::gtest_main
 )
+
+cdr_cpp_test(
+  NAME newton_raphson_tests
+  SRCS
+    "newton_raphson/newton_raphson_tests.cc"
+  DEPS
+    cdr::math
+    GTest::gtest_main
+)
