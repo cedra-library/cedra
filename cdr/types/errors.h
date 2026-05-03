@@ -13,47 +13,62 @@ enum class Error {
     DateInAPast,
     NoMemory,
     NoData,
+    ExtrapolationNotAllowed,
+    TimeExtrapolationNotAllowed,
+    StrikeExtrapolationNotAllowed,
     __NumberOfErrors,
 };
 
-inline Failure<Error> ErrorContractWithoutNPV() {
+constexpr Failure<Error> ErrorContractWithoutNPV() {
     return Failure<Error>(Error::ContractWithoutNPV);
 }
 
-inline Failure<Error> ErrorContractWithoutUnderlyingAsset() {
+constexpr Failure<Error> ErrorContractWithoutUnderlyingAsset() {
     return Failure<Error>(Error::ContractWithoutUnderlyingAsset);
 }
 
-inline Failure<Error> ErrorContractWithoutExpirationDate() {
+constexpr Failure<Error> ErrorContractWithoutExpirationDate() {
     return Failure<Error>(Error::ContractWithoutExpirationDate);
 }
 
-inline Failure<Error> ErrorContractWithoutType() {
+constexpr Failure<Error> ErrorContractWithoutType() {
     return Failure<Error>(Error::ContractWithoutType);
 }
 
-inline Failure<Error> ErrorContractWithoutStyle() {
+constexpr Failure<Error> ErrorContractWithoutStyle() {
     return Failure<Error>(Error::ContractWithoutStyle);
 }
 
-inline Failure<Error> ErrorContractWithoutStrike() {
+constexpr Failure<Error> ErrorContractWithoutStrike() {
     return Failure<Error>(Error::ContractWithoutStrike);
 }
 
-inline Failure<Error> ErrorNegativeStrike() {
+constexpr Failure<Error> ErrorNegativeStrike() {
     return Failure<Error>(Error::NegativeStrike);
 }
 
-inline Failure<Error> ErrorDateInAPast() {
+constexpr Failure<Error> ErrorDateInAPast() {
     return Failure<Error>(Error::DateInAPast);
 }
 
-inline Failure<Error> ErrorNoMemory() {
+constexpr Failure<Error> ErrorNoMemory() {
     return Failure<Error>(Error::NoMemory);
 }
 
-inline Failure<Error> ErrorNoData() {
+constexpr Failure<Error> ErrorNoData() {
     return Failure<Error>(Error::NoData);
+}
+
+constexpr Failure<Error> ErrorExtrapolationNotAllowed() {
+    return Failure<Error>(Error::ExtrapolationNotAllowed);
+}
+
+constexpr Failure<Error> ErrorTimeExtrapolationNotAllowed() {
+    return Failure<Error>(Error::TimeExtrapolationNotAllowed);
+}
+
+constexpr Failure<Error> ErrorStrikeExtrapolationNotAllowed() {
+    return Failure<Error>(Error::StrikeExtrapolationNotAllowed);
 }
 
 [[nodiscard]] constexpr std::string_view ErrorAsStringView(const Error error) noexcept {
@@ -68,6 +83,9 @@ inline Failure<Error> ErrorNoData() {
     case Error::DateInAPast:                     return "Date is in the past";
     case Error::NoMemory:                        return "Out of memory";
     case Error::NoData:                          return "No data available";
+    case Error::ExtrapolationNotAllowed:         return "Extrapolation is not allowed";
+    case Error::TimeExtrapolationNotAllowed:     return "Time extrapolation is not allowed";
+    case Error::StrikeExtrapolationNotAllowed:   return "Strike extrapolation is not allowed";
     case Error::__NumberOfErrors:                [[fallthrough]];
     default:                                     return "Unknown error";
     }
