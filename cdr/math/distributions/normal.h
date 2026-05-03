@@ -96,4 +96,8 @@ constexpr f64 NormalCDFInverseMoroAlgorithm(f64 u) noexcept {
     return NormalCDFInverseMoroAlgorithm(u);
 }
 
+[[nodiscard("pure")]] constexpr f64 NormalPDF(f64 x) noexcept {
+    return std::exp(-0.5 * x * x) / std::sqrt(2. * std::numbers::pi);
+}
+
 }  // namespace cdr
