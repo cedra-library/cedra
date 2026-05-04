@@ -12,8 +12,20 @@
 
 namespace cdr {
 
+namespace internal {
+
+// Workaround: MSVC standard library does not have constexpr Abs
+constexpr f64 Abs(f64 v) noexcept {
+    if (v < 0) {
+        return -v;
+    }
+    return v;
+}
+
+}  // namespace internal
+
 constexpr f64 NormalCDFHartAlgorithm(f64 x) noexcept {
-    f64 y = std::abs(x);
+    f64 y = internal::Abs(x);
     if (y > 37.) {
         return x > 0. ? 1. : 0.;
     }
@@ -58,7 +70,7 @@ constexpr f64 NormalCDFInverseMoroAlgorithm(f64 u) noexcept {
                                    3.21767881767818e-05, 2.888167364e-07, 3.960315187e-07};
     f64 r;
     f64 x = u - 0.5;
-    if (std::abs(x) < 0.92) {
+    if (internal::Abs(x) < 0.92) {
         r = x * x;
         r = x * (((a[3] * r + a[2]) * r + a[1]) * r + a[0])
             / ((((b[3] * r + b[2]) * r + b[1]) * r + b[0]) * r + 1);
