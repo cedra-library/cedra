@@ -8,7 +8,7 @@
 
 namespace cdr {
 
-[[nodiscard]] std::optional<f64> IrsContract::NPV(Curve *curve) const noexcept {
+[[nodiscard]] std::optional<f64> IrsContract::NPV(const Curve& curve) const noexcept {
     auto pv_fixed = PVFixed(curve);
     auto pv_float = PVFloat(curve);
     if (!pv_fixed.has_value() || !pv_float.has_value()) [[unlikely]] {
@@ -21,9 +21,9 @@ namespace cdr {
     return res;
 }
 
-[[nodiscard]] std::optional<f64> IrsContract::PVFixed(Curve *curve) const noexcept {
+[[nodiscard]] std::optional<f64> IrsContract::PVFixed(const Curve& curve) const noexcept {
     auto fixed_leg = FixedLeg();
-    Period period = {curve->Today(), curve->Today()};
+    Period period = {curve.Today(), curve.Today()};
     auto& [today, settlement_date] = period;
 
     f64 result = 0.;
@@ -33,16 +33,16 @@ namespace cdr {
             continue;
         }
         settlement_date = payment_period.SettlementDate();
-        auto rate = curve->Interpolated<Linear>(settlement_date, *curve->Calendar(), jurisdiction_);
-        result += DayCountFraction(period) * Curve::ZeroRatesToDiscount(period, rate).Fraction();
+        auto rate = curve.Interpolated<Linear>(settlement_date, curve.Calendar(), jurisdiction_);
+        result += DayCountFraction(period) * curve.ZeroRatesToDiscount(settlement_date, rate).Fraction();
     }
 
     return result * fixed_rate_.Fraction() * notional_;
 }
 
-[[nodiscard]] std::optional<f64> IrsContract::PVFloat(Curve *curve) const noexcept {
+[[nodiscard]] std::optional<f64> IrsContract::PVFloat(const Curve& curve) const noexcept {
     auto float_leg = FloatLeg();
-    Period period = {curve->Today(), curve->Today()};
+    Period period = {curve.Today(), curve.Today()};
     auto& [today, settlement_date] = period;
 
     auto begin = std::lower_bound(float_leg.begin(), float_leg.end(), today,
@@ -59,18 +59,18 @@ namespace cdr {
         if (!payment_period.HasKnownPayment()) {
             return std::nullopt;
         }
-        auto rate = curve->Interpolated<Linear>(settlement_date, *curve->Calendar(), jurisdiction_);
-        result += *payment_period.Payment() * DayCountFraction(period) * Curve::ZeroRatesToDiscount(period, rate).Fraction();
+        auto rate = curve.Interpolated<Linear>(settlement_date, curve.Calendar(), jurisdiction_);
+        result += *payment_period.Payment() * DayCountFraction(period) * curve.ZeroRatesToDiscount(settlement_date, rate).Fraction();
     }
 
     return result;
 }
 
-void IrsContract::ApplyCurve(Curve* curve) noexcept {
+void IrsContract::ApplyCurve(const Curve& curve) noexcept {
     auto leg = FloatLegMut();
 
     for (auto& period : leg) {
-        auto rate = curve->Interpolated<Linear>(period.Until(), *curve->Calendar(), jurisdiction_);
+        auto rate = curve.Interpolated<Linear>(period.Until(), curve.Calendar(), jurisdiction_);
         f64 payment = (rate + adjustment_).Apply(notional_);
         period.SetPayment(payment);
     }
@@ -78,7 +78,7 @@ void IrsContract::ApplyCurve(Curve* curve) noexcept {
 
 /* IrsBuilder */
 
-[[nodiscard]] IrsContract IrsBuilder::Build(const HolidayStorage& hs, const std::string& jur, DateRollingRule rule) {
+[[nodiscard]] IrsContract IrsBuilder::Build(const HolidayStorage& hs, const JurisdictionType& jur, DateRollingRule rule) {
 
     CDR_CHECK(maturity_date_.has_value()) << "must be defined";
     CDR_CHECK(settlement_date_.has_value()) << "must be defined";
@@ -184,7 +184,7 @@ void IrsBuilder::Reset() {
 
 /* IrsBuilderExperimental */
 
-[[nodiscard]] IrsContract IrsBuilderExperimental::Build(const HolidayStorage& hs, const std::string& jur, DateRollingRule rule) {
+[[nodiscard]] IrsContract IrsBuilderExperimental::Build(const HolidayStorage& hs, const JurisdictionType& jur, DateRollingRule rule) {
 
     CDR_CHECK(trade_date_.has_value()) << "must be defined";
     CDR_CHECK(start_shift_.has_value()) << "must be defined";

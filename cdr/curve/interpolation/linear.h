@@ -12,20 +12,20 @@ public:
     static Percent Interpolate(const Curve::PointsContainer& points,
                                const DateType& date,
                                const HolidayStorage& hs,
-                               const std::string& jur);
+                               const JurisdictionType& jur);
 
     // Deprecated. Use cdr/math instead.
     static f64 InterpolateDerivative(const Curve::PointsContainer& points,
                                      const DateType& date,
                                      const HolidayStorage& hs,
-                                     const std::string& jur);
+                                     const JurisdictionType& jur);
 
     [[deprecated("use cdr/math instead")]]
     static f64 YetAnotherDerivative(const Curve::PointsContainer& points,
                                      const DateType& date,
                                      const DateType& pillar,
                                      const HolidayStorage& hs,
-                                     const std::string& jur);
+                                     const JurisdictionType& jur);
 
 };
 

@@ -113,11 +113,11 @@ public:
         return FloatLeg().back().SettlementDate();
     }
 
-    void ApplyCurve(Curve* curve) noexcept;
+    void ApplyCurve(const Curve& curve) noexcept;
 
-    [[nodiscard]] std::optional<f64> PVFixed(Curve *curve) const noexcept;
-    [[nodiscard]] std::optional<f64> PVFloat(Curve *curve) const noexcept;
-    [[nodiscard]] std::optional<f64> NPV(Curve *curve) const noexcept;
+    [[nodiscard]] std::optional<f64> PVFixed(const Curve& curve) const noexcept;
+    [[nodiscard]] std::optional<f64> PVFloat(const Curve& curve) const noexcept;
+    [[nodiscard]] std::optional<f64> NPV(const Curve& curve) const noexcept;
 
 private:
 
@@ -135,7 +135,7 @@ private:
     }
 
 private:
-    std::string jurisdiction_;
+    JurisdictionType jurisdiction_;
     std::vector<IrsPaymentPeriod> payment_periods_;
     IrsPaymentPeriod* fixed_leg_ = nullptr;
     IrsPaymentPeriod* float_leg_ = nullptr;

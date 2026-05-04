@@ -7,7 +7,7 @@ namespace cdr {
 
 /* static */
 cdr::Percent Linear::Interpolate(const cdr::Curve::PointsContainer& points, const DateType& date,
-                                const HolidayStorage& hs, const std::string& jur)
+                                const HolidayStorage& hs, const JurisdictionType& jur)
 {
     if (hs.IsWeekend(jur, date)) {
         return Interpolate(points, hs.FindPreviousWorkingDay(jur, date), hs, jur);

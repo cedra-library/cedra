@@ -26,11 +26,10 @@ TEST(Swaps, Basic) {
     ;
     cdr::DateType today = day(31)/December/year(2024);
 
-    cdr::Curve curve;
-    curve.StaticInit()
-        .SetToday(today)
-        .SetCalendar(&holiday_storage)
-        .SetJurisdiction("RUS")
+    cdr::MarketContext context(std::move(holiday_storage), today);
+    auto curve = cdr::CurveBuilder(context)
+        .Jurisdiction("RUS")
+        .FromPoints()
     ;
 
     cdr::IrsContract irs = cdr::IrsBuilder()
@@ -42,7 +41,7 @@ TEST(Swaps, Basic) {
       .MaturityDate(day(1) / January / year(2025))
       .SettlementDate(day(1) / January / year(2023))
       .Adjustment(cdr::Percent::Zero())
-      .Build(holiday_storage, "RUS")
+      .Build(context.Calendar(), "RUS")
     ;
 
     for (const cdr::IrsPaymentPeriod& payment : irs.FixedLeg()) {
@@ -53,7 +52,7 @@ TEST(Swaps, Basic) {
         ASSERT_FALSE(payment.HasKnownPayment());
     }
 
-    auto pv_fixed = irs.PVFixed(&curve);
+    auto pv_fixed = irs.PVFixed(*curve);
     ASSERT_TRUE(pv_fixed.has_value());
 }
 
@@ -78,11 +77,10 @@ TEST(Basic, Experimental) {
     DateType tomorrow = day(30)/December/year(2025);
     DateType jan12 = day(12)/January/year(2026);
 
-    cdr::Curve curve;
-    curve.StaticInit()
-        .SetToday(today)
-        .SetJurisdiction("RUB")
-        .SetCalendar(&holiday_storage)
+    cdr::MarketContext context(std::move(holiday_storage), today);
+    auto curve = cdr::CurveBuilder(context)
+        .Jurisdiction("RUB")
+        .FromPoints()
     ;
     cdr::IrsContract swap = cdr::IrsBuilderExperimental()
         .Adjustment(0_percents)
@@ -96,7 +94,7 @@ TEST(Basic, Experimental) {
         .StartShift(1)
         .Stub(cdr::IrsContract::Stub::SHORT)
         .TradeDate(today)
-        .Build(holiday_storage, "RUB", cdr::DateRollingRule::kModifiedFollowing)
+        .Build(context.Calendar(), "RUB", cdr::DateRollingRule::kModifiedFollowing)
     ;
 
     ASSERT_TRUE(swap.FixedLeg().size() == 1);

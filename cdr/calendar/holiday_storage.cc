@@ -5,7 +5,7 @@
 
 namespace cdr {
 
-const std::set<DateType>& HolidayStorage::JurisdictionHolidays(const std::string& jur) const {
+const std::set<DateType>& HolidayStorage::JurisdictionHolidays(const JurisdictionType& jur) const {
     auto it = storage.find(jur);
     if (it == storage.end()) {
         throw std::runtime_error("unknown jurisdiction");
@@ -14,7 +14,7 @@ const std::set<DateType>& HolidayStorage::JurisdictionHolidays(const std::string
     return it->second;
 }
 
-bool HolidayStorage::IsWeekend(const std::string& jur, const DateType& date) const {
+bool HolidayStorage::IsWeekend(const JurisdictionType& jur, const DateType& date) const {
     if (JurisdictionHolidays(jur).contains(date)) {
         return true;
     }
@@ -23,7 +23,7 @@ bool HolidayStorage::IsWeekend(const std::string& jur, const DateType& date) con
     return wd == std::chrono::Saturday || wd == std::chrono::Sunday;
 }
 
-DateType HolidayStorage::FindNextWorkingDay(const std::string& jur, const DateType& date) const {
+DateType HolidayStorage::FindNextWorkingDay(const JurisdictionType& jur, const DateType& date) const {
     DateType result = date;
 
     do {
@@ -33,7 +33,7 @@ DateType HolidayStorage::FindNextWorkingDay(const std::string& jur, const DateTy
     return result;
 }
 
-DateType HolidayStorage::FindPreviousWorkingDay(const std::string& jur, const DateType& date) const {
+DateType HolidayStorage::FindPreviousWorkingDay(const JurisdictionType& jur, const DateType& date) const {
     DateType result = date;
 
     do {
@@ -63,7 +63,7 @@ static i64 CountWeekends(const DateType& left, const DateType& right) {
     return weekends;
 }
 
-[[nodiscard]] i64 HolidayStorage::CountBuisnessDays(const DateType& left, const DateType& right, const std::string& jur) const {
+[[nodiscard]] i64 HolidayStorage::CountBuisnessDays(const DateType& left, const DateType& right, const JurisdictionType& jur) const {
     auto num_weekends = CountWeekends(left, right);
     auto sys_left = std::chrono::sys_days(left).time_since_epoch().count();
     auto sys_right = std::chrono::sys_days(right).time_since_epoch().count();
@@ -81,7 +81,7 @@ static i64 CountWeekends(const DateType& left, const DateType& right) {
     return (sys_right - sys_left) - (num_weekends + num_holidays);
 }
 
-DateType HolidayStorage::AdjustWorkDay(const std::string& jur, DateType date, DateRollingRule rule) const {
+DateType HolidayStorage::AdjustWorkDay(const JurisdictionType& jur, DateType date, DateRollingRule rule) const {
     if (!IsWeekend(jur, date)) {
         return date;
     }
@@ -105,7 +105,7 @@ DateType HolidayStorage::AdjustWorkDay(const std::string& jur, DateType date, Da
     return date;
 }
 
-DateType HolidayStorage::AdvanceDateByBusinessDays(const std::string& jur, DateType date, i32 days) const {
+DateType HolidayStorage::AdvanceDateByBusinessDays(const JurisdictionType& jur, DateType date, i32 days) const {
     if (days >= 0) [[likely]] {
         for (i32 i = 0; i < days; i++) {
             date = FindNextWorkingDay(jur, date);
@@ -135,13 +135,13 @@ DateType HolidayStorage::AdvanceDateByTenor(DateType date, Tenor tenor) const {
     }
 }
 
-DateType HolidayStorage::AdvanceDateByConvention(const std::string& jur, DateType date, Tenor tenor, DateRollingRule rule) const {
+DateType HolidayStorage::AdvanceDateByConvention(const JurisdictionType& jur, DateType date, Tenor tenor, DateRollingRule rule) const {
     date = AdvanceDateByTenor(date, tenor);
     date = AdjustWorkDay(jur, date, rule);
     return date;
 }
 
-Generator<DateType> HolidayStorage::BusinessDays(Generator<DateType> dates, std::string jur,
+Generator<DateType> HolidayStorage::BusinessDays(Generator<DateType> dates, JurisdictionType jur,
                                                  DateRollingRule adjustment) const {
     DateType prev;
     for (auto date_provided : dates) {
