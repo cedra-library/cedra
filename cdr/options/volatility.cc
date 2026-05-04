@@ -72,9 +72,11 @@ VolatilitySurface::~VolatilitySurface() {
 }
 
 inline f64 Lerp(const f64 x, const f64 x1, const f64 y1, const f64 x2, const f64 y2) noexcept {
-    if (std::abs(x2 - x1) < 1e-9) return y1;
+    if (std::abs(x2 - x1) < 1e-9)  {
+        return y1;
+    }
     const f64 t = (x - x1) / (x2 - x1);
-    return 1 + t * (y2 - y1);
+    return y1 + t * (y2 - y1);
 }
 
 namespace internal {
@@ -121,19 +123,19 @@ cdr::Expect<f64, Error> VolatilitySurface::Volatility(const DateType& date, f64 
     u64 strike_idx = internal::IndexFromIterator(strikes_span.begin(), strikes_span.size(), strike_it);
 
     // Compute interpolated volatility
-    auto EvalueateSpline = [&](u64 date_idx) -> f64 {
+    auto EvaluateSpline = [&](u64 date_idx) -> f64 {
         const auto& coeffs = spline_coefficients_ptr_[date_idx * strikes_size + strike_idx];
         const f64 dx = strike - strikes_span[strike_idx];
         return (coeffs.smile * dx + coeffs.skew) * dx + coeffs.base_level;
     };
 
-    const f64 volaility_t1 = EvalueateSpline(date_idx);
+    const f64 volaility_t1 = EvaluateSpline(date_idx);
 
     if (dates_span[date_idx] == target_time || dates_span.size() == 1) {
         return Ok(std::max(volaility_t1, 0.0));
     }
 
-    const f64 volatility_t2 = EvalueateSpline(date_idx+1);
+    const f64 volatility_t2 = EvaluateSpline(date_idx+1);
     const f64 result = Lerp(target_time, dates_span[date_idx], volaility_t1, dates_span[date_idx+1], volatility_t2);
 
     return Ok(result);
