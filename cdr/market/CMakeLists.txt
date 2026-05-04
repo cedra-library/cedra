@@ -8,5 +8,15 @@ cdr_cpp_library(
     cdr::types
     cdr::calendar
     cdr::base
+    cdr::fx
   PUBLIC
+)
+
+cdr_cpp_test(
+  NAME market_context_tests
+  SRCS
+    "context_tests.cc"
+  DEPS
+    cdr::market
+    GTest::gtest_main
 )

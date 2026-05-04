@@ -4,8 +4,8 @@
 namespace cdr {
 
 /* static */
-[[nodiscard]] std::unique_ptr<Curve> Curve::Create(MarketContext& ctx_, const JurisdictionType& jur) {
-    return std::unique_ptr<Curve>(new Curve(ctx_, jur));
+[[nodiscard]] std::unique_ptr<Curve> Curve::Create(MarketContextView ctx, const JurisdictionType& jur) {
+    return std::unique_ptr<Curve>(new Curve(ctx, jur));
 }
 
 void Curve::Clear() {

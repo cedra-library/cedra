@@ -19,12 +19,12 @@ public:
     using DependencyGraph = std::map<JurisdictionType, std::vector<JurisdictionType>>;
     using CurveStorage = std::map<JurisdictionType, std::unique_ptr<Curve>>;
 public:
-    Model(MarketContext& ctx): ctx_(ctx) {};
+    Model(MarketContextView ctx): ctx_(ctx) {};
 
     Model(const Model&) = delete;
     Model& operator=(const Model&) = delete;
 
-    [[nodiscard]] MarketContext& Context() noexcept {
+    [[nodiscard]] MarketContextView Context() noexcept {
         return ctx_;
     }
 
@@ -63,7 +63,7 @@ private:
     std::map<JurisdictionType, std::vector<ForwardContract>> forwards_;
     CurveStorage curves_;
     DependencyGraph curve_deps_;
-    MarketContext& ctx_;
+    MarketContextView ctx_;
 };
 
 }  // namespace cdr

@@ -38,7 +38,7 @@ public:
     Curve(const Curve&) = delete;
     Curve& operator=(const Curve&) = delete;
 
-    [[nodiscard]] static std::unique_ptr<Curve> Create(MarketContext&, const JurisdictionType& jur);
+    [[nodiscard]] static std::unique_ptr<Curve> Create(MarketContextView ctx, const JurisdictionType& jur);
 
     void Clear();
 
@@ -135,7 +135,7 @@ public:
     [[nodiscard]] Percent DiscountToZeroRates(const DateType& date, Percent p) const;
 
 private:
-    Curve(MarketContext& ctx, JurisdictionType jur)
+    Curve(MarketContextView ctx, JurisdictionType jur)
         : ctx_(ctx)
         , jurisdiction_(std::move(jur))
     {}
@@ -144,13 +144,13 @@ private:
 
 private:
     PointsContainer points_;
-    MarketContext& ctx_;
+    MarketContextView ctx_;
     JurisdictionType jurisdiction_;
 };
 
 class CDR_CURVE_EXPORT CurveBuilder {
 public:
-    CurveBuilder(MarketContext& ctx): ctx_(ctx) {};
+    CurveBuilder(MarketContextView ctx): ctx_(ctx) {};
 
     [[maybe_unused]] CurveBuilder& Jurisdiction(JurisdictionType jur) {
         jurisdiction_.emplace(std::move(jur));
@@ -191,7 +191,7 @@ public:
 
 private:
     Curve::PointsContainer points_;
-    MarketContext& ctx_;
+    MarketContextView ctx_;
     std::optional<JurisdictionType> jurisdiction_;
 };
 

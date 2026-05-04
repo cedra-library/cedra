@@ -11,6 +11,8 @@
 
 namespace cdr {
 
+class MarketContextView;
+
 class CDR_MARKET_EXPORT MarketContext {
 public:
     MarketContext(HolidayStorage&& calendar, DateType today)
@@ -18,6 +20,9 @@ public:
         , calendar_(std::move(calendar))
         , today_(today)
     {}
+
+    MarketContext(const MarketContext&) = delete;
+    MarketContext& operator=(const MarketContext&) = delete;
 
     [[nodiscard]] DateType Today() const noexcept {
         return today_;
@@ -29,7 +34,7 @@ public:
         today_ = date;
     }
 
-    f64 FxSpot(const FXPair& pair) const;
+    [[nodiscard]] f64 FxSpot(const FXPair& pair) const;
     void SetFxSpot(const FXPair& pair, f64 spot);
 
     [[nodiscard]] const HolidayStorage& Calendar() const {
@@ -42,5 +47,27 @@ private:
     DateType today_;
 };
 
+class CDR_MARKET_EXPORT MarketContextView {
+public:
+    MarketContextView(const MarketContext& context) : context_(context) {};
+
+    [[nodiscard]] DateType Today() const noexcept {
+        return context_.Today();
+    }
+
+    [[nodiscard]] DateType SpotDate(const FXPair& pair) const noexcept {
+        return context_.SpotDate(pair);
+    }
+
+    [[nodiscard]] f64 FxSpot(const FXPair& pair) const {
+        return context_.FxSpot(pair);
+    }
+
+    [[nodiscard]] const HolidayStorage& Calendar() const {
+        return context_.Calendar();
+    }
+private:
+    const MarketContext& context_;
+};
 
 }  // namespace cdr

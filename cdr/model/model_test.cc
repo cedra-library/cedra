@@ -35,5 +35,4 @@ TEST(Model, Basic) {
     auto *curve = model.GetCurve("USD");
     ASSERT_NE(curve, nullptr);
     ASSERT_TRUE(curve->Pillars().empty());
-
 }
