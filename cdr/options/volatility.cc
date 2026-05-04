@@ -16,8 +16,7 @@ namespace cdr {
 
 VolatilitySurface::VolatilitySurface(void* incremented_base) {
     CDR_CHECK(incremented_base != nullptr) << "VolatilitySurface cannot be nullptr.";
-    header_ptr_ = static_cast<SurfaceHeader*>(incremented_base);
-    auto* base_ptr = static_cast<std::byte*>(incremented_base);
+    header_ptr_ = static_cast<SurfaceHeader*>(incremented_base); auto* base_ptr = static_cast<std::byte*>(incremented_base);
     strikes_ptr_ = reinterpret_cast<f64*>(base_ptr + header_ptr_->strikes_byte_offset);
     dates_ptr_ = reinterpret_cast<f64*>(base_ptr + header_ptr_->dates_byte_offset);
     spline_coefficients_ptr_ = reinterpret_cast<SplineCoefficents*>(base_ptr + header_ptr_->volatility_byte_offset);
