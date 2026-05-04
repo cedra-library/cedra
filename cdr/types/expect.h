@@ -477,6 +477,11 @@ inline Success<std::remove_reference_t<T>> Ok(T&& val) {
     return Success<std::remove_reference_t<T>>(std::forward<T>(val));
 }
 
+template<NonVoid T>
+inline Success<std::remove_reference_t<T>> Ok(const T& val) {
+    return Success<std::remove_reference_t<T>>(val);
+}
+
 inline Success<void> Ok() {
     return Success<void>();
 }
