@@ -8,18 +8,22 @@
 #include <cdr/base/check.h>
 #include <cdr/math/newton_raphson/newton_raphson.h>
 #include <cdr/curve/internal/export.h>
+#include <cdr/market/context.h>
+#include <cdr/fx/fx.h>
 
 #include <functional>
 #include <map>
 #include <tuple>
+#include <memory>
 
 namespace cdr {
 
 class Curve;
+class CurveBuilder;
 using DateType = std::chrono::year_month_day;
 
 template <typename T>
-concept Contract = requires(T obj, Curve* curve) {
+concept Contract = requires(T obj, const Curve& curve) {
     { std::as_const(obj).SettlementDate() } -> std::same_as<DateType>;
     { obj.ApplyCurve(curve) } -> std::same_as<void>;
     { std::as_const(obj).NPV(curve) } -> std::same_as<std::optional<f64>>;
@@ -28,54 +32,18 @@ concept Contract = requires(T obj, Curve* curve) {
 class [[nodiscard]] CDR_CURVE_EXPORT Curve final {
 public:
     using PointsContainer = std::map<DateType, Percent>;
+
+    friend class CurveBuilder;
 public:
-    Curve() = default;
-
-    template <std::input_iterator It>
-    Curve(It begin, It end) {
-        auto it = points_.begin();
-        for (; begin != end; ++begin) {
-            const auto& [date, value] = *begin;
-            it = points_.emplace_hint(it, date, value);
-        }
-    }
-
     Curve(const Curve&) = delete;
     Curve& operator=(const Curve&) = delete;
 
-    struct CurveEasyInit {
-        CurveEasyInit& operator()(DateType date, Percent value) {
-            target_->Insert(date, value);
-            return *this;
-        }
-
-        CurveEasyInit& SetToday(DateType date) {
-            CDR_CHECK(date.ok()) << "invalid date " << date;
-            target_->today_ = date;
-            return *this;
-        }
-
-        CurveEasyInit& SetCalendar(HolidayStorage* hs) {
-            CDR_CHECK(hs != nullptr) << "calendar should be defined";
-            target_->calendar_ = hs;
-            return *this;
-        }
-
-        CurveEasyInit& SetJurisdiction(const std::string& jur) {
-            CDR_CHECK(!jur.empty()) << "jurisdiction should be non-empty";
-            target_->jurisdiction_ = jur;
-            return *this;
-        }
-
-        Curve* target_;
-    };
-
-    CurveEasyInit StaticInit();
+    [[nodiscard]] static std::unique_ptr<Curve> Create(MarketContextView ctx, const JurisdictionType& jur);
 
     void Clear();
 
     template <typename Interpolation, typename... Args>
-    [[nodiscard]] Percent Interpolated(DateType date, Args&&... args) {
+    [[nodiscard]] Percent Interpolated(DateType date, Args&&... args) const {
         if constexpr (Interpolation::kStatefulImplementation) {
             auto args_tuple = std::forward_as_tuple(std::forward<Args>(args)...);
 
@@ -103,9 +71,9 @@ public:
     }
 
     template <Contract T>
-    void AdaptToContract(T* contract) {
+    void AdaptToContract(T& contract) {
         constexpr f64 precision = 0.001;
-        DateType settlement = contract->SettlementDate();
+        DateType settlement = contract.SettlementDate();
         Period period{Today(), settlement};
 
         Percent left_df = Percent::FromFraction(0.);
@@ -122,9 +90,9 @@ public:
 
         auto target = [&](f64 x) {
             auto df = Percent::FromFraction(x);
-            node->second = Curve::DiscountToZeroRates(period, df);
-            contract->ApplyCurve(this);
-            auto npv = contract->NPV(this);
+            node->second = DiscountToZeroRates(settlement, df);
+            contract.ApplyCurve(*this);
+            auto npv = contract.NPV(*this);
             CDR_CHECK(npv.has_value()) << "must have value";
             return *npv;
         };
@@ -142,33 +110,89 @@ public:
         FindRoot(target, left_df.Fraction(), right_df.Fraction(), std::nullopt);
     }
 
+    void ApplyFXContract(const Curve& other, const ForwardContract& fwd) noexcept;
+
     // Advance current date and all pillars by one buisness day
     void RollForward() noexcept;
 
     [[nodiscard]] DateType Today() const noexcept {
-        return today_;
+        return ctx_.Today();
     }
 
-    [[nodiscard]] HolidayStorage* Calendar() const noexcept {
-        return calendar_;
+    [[nodiscard]] const HolidayStorage& Calendar() const noexcept {
+        return ctx_.Calendar();
     }
 
     [[nodiscard]] const PointsContainer& Pillars() const noexcept {
         return points_;
     }
 
-    [[nodiscard]] static Percent ZeroRatesToDiscount(const Period& period, Percent p);
-    [[nodiscard]] static Percent DiscountToZeroRates(const Period& period, Percent p);
+    [[nodiscard]] JurisdictionType GetJurisdiction() const noexcept {
+        return jurisdiction_;
+    }
+
+    [[nodiscard]] Percent ZeroRatesToDiscount(const DateType& date, Percent p) const;
+    [[nodiscard]] Percent DiscountToZeroRates(const DateType& date, Percent p) const;
 
 private:
+    Curve(MarketContextView ctx, JurisdictionType jur)
+        : ctx_(ctx)
+        , jurisdiction_(std::move(jur))
+    {}
 
     void Insert(DateType when, Percent value);
 
 private:
     PointsContainer points_;
-    std::string jurisdiction_;
-    DateType today_;
-    HolidayStorage* calendar_;
+    MarketContextView ctx_;
+    JurisdictionType jurisdiction_;
+};
+
+class CDR_CURVE_EXPORT CurveBuilder {
+public:
+    CurveBuilder(MarketContextView ctx): ctx_(ctx) {};
+
+    [[maybe_unused]] CurveBuilder& Jurisdiction(JurisdictionType jur) {
+        jurisdiction_.emplace(std::move(jur));
+        return *this;
+    }
+
+    [[maybe_unused]] CurveBuilder& Add(const DateType& when, Percent value);
+
+    template <std::input_iterator Iter>
+    [[nodiscard]] std::unique_ptr<Curve> FromContracts(Iter begin, Iter end) {
+        CDR_CHECK(jurisdiction_.has_value()) << "Jusrisdiction should be set";
+
+        auto curve = Curve::Create(ctx_, std::move(*jurisdiction_));
+
+        for (auto i = begin; i < end; i++) {
+            curve->AdaptToContract(*i);
+        }
+
+        return curve;
+    }
+
+    template <std::input_iterator Iter>
+    [[nodiscard]] std::unique_ptr<Curve> FromOther(const Curve& other, Iter begin, Iter end) {
+        CDR_CHECK(&ctx_ == &other.ctx_) << "Curves should share market context";
+        CDR_CHECK(jurisdiction_.has_value()) << "Jusrisdiction should be set";
+        CDR_CHECK(jurisdiction_.value() != other.jurisdiction_) << "Same jurisdiction";
+
+        auto curve = Curve::Create(ctx_, std::move(*jurisdiction_));
+
+        for (auto i = begin; i < end; i++) {
+            curve->ApplyFXContract(other, *i);
+        }
+
+        return curve;
+    }
+
+    [[nodiscard]] std::unique_ptr<Curve> FromPoints();
+
+private:
+    Curve::PointsContainer points_;
+    MarketContextView ctx_;
+    std::optional<JurisdictionType> jurisdiction_;
 };
 
 }  // namespace cdr
