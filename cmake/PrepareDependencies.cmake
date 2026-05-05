@@ -42,3 +42,4 @@ if (CDR_BUILD_BENCH)
 
 endif()
 
+add_subdirectory(third_party/boost)
