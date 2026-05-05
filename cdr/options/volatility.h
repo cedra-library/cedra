@@ -13,6 +13,12 @@ namespace cdr {
 
 class VolatilitySurfaceProvider;
 
+struct CDR_OPTIONS_EXPORT SplineCoefficents {
+    f64 smile;      // Кривизна
+    f64 skew;       // Наклон
+    f64 base_level; // Волатильность в левом узле
+};
+
 class CDR_OPTIONS_EXPORT VolatilitySurface {
 public:
     friend class VolatilitySurfaceProvider;
@@ -58,7 +64,7 @@ public:
         return {dates_ptr_, header_ptr_->dates_size};
     }
 
-    [[nodiscard]] f64 Volatility(const DateType& date, f64 strike) const noexcept;
+    [[nodiscard]] cdr::Expect<f64, Error> Volatility(const DateType& date, f64 strike) const noexcept;
 
 private:
 
@@ -68,7 +74,7 @@ private:
     const SurfaceHeader* header_ptr_;
     const f64* strikes_ptr_;
     const f64* dates_ptr_;
-    const f64* volatility_ptr_;
+    const SplineCoefficents* spline_coefficients_ptr_;
 };
 
 
