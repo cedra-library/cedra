@@ -5,9 +5,12 @@ cdr_cpp_library(
     "contract.h"
     "volatility.h"
     "internal/export.h"
+    "interpolation/concept.h"
+    "interpolation/quadratic_spline.h"
   SRCS
     "contract.cc"
     "volatility.cc"
+    "interpolation/quadratic_spline.cc"
   DEPS
     cdr::calendar
     cdr::base

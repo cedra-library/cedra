@@ -4,6 +4,7 @@
 #include <cdr/types/errors.h>
 #include <cdr/types/expect.h>
 #include <cdr/options/internal/export.h>
+#include <cdr/options/interpolation/quadratic_spline.h>
 
 #include <atomic>
 #include <span>
@@ -18,6 +19,8 @@ struct CDR_OPTIONS_EXPORT SplineCoefficents {
     f64 skew;       // Наклон
     f64 base_level; // Волатильность в левом узле
 };
+
+using Interpolator = QuadraticSplineInterpolator;
 
 class CDR_OPTIONS_EXPORT VolatilitySurface {
 public:
