@@ -62,6 +62,11 @@ constexpr f64 NormalCDFHartAlgorithm(f64 x) noexcept {
     return x > 0. ? 1. - cnd : cnd;
 }
 
+f64 NormalCDFStdLib(f64 x) noexcept {
+    constexpr f64 inv_sqrt1_2 = 1.0 / 1.4142135623730951;
+    return 0.5 * std::erfc(-x * inv_sqrt1_2);
+}
+
 constexpr f64 NormalCDFInverseMoroAlgorithm(f64 u) noexcept {
     constexpr std::array<f64, 4> a{2.50662823884, -18.61500062529, 41.39119773534, -25.44106049637};
     constexpr std::array<f64, 4> b{-8.4735109309, 23.08336743743, -21.06224101826, 3.13082909833};
@@ -96,8 +101,9 @@ constexpr f64 NormalCDFInverseMoroAlgorithm(f64 u) noexcept {
     return NormalCDFInverseMoroAlgorithm(u);
 }
 
-[[nodiscard("pure")]] constexpr f64 NormalPDF(f64 x) noexcept {
-    return std::exp(-0.5 * x * x) / std::sqrt(2. * std::numbers::pi);
+[[nodiscard("pure")]] f64 NormalPDF(f64 x) noexcept {
+    constexpr f64 inv_sqrt_2pi = 0.3989422804014327;
+    return std::exp(-0.5 * x * x) * inv_sqrt_2pi;
 }
 
 }  // namespace cdr

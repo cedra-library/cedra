@@ -15,7 +15,7 @@ struct OptionParams {
     OptionType type;
 };
 
-[[nodiscard]] constexpr f64 FxOptionPrice(
+[[nodiscard]] f64 FxOptionPrice(
     f64 S,
     f64 K,
     f64 rd,
@@ -38,7 +38,7 @@ struct OptionParams {
     }
 }
 
-[[nodiscard]] constexpr f64 FxOptionDelta(
+[[nodiscard]] f64 FxOptionDelta(
     f64 S,
     f64 K,
     f64 rd,
