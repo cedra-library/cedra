@@ -12,6 +12,7 @@ cdr_cpp_library(
     cdr::calendar
     cdr::base
     cdr::types
+    cdr::math
   PUBLIC
 )
 

@@ -15,7 +15,7 @@ struct OptionParams {
     OptionType type;
 };
 
-[[nodiscard]] constexpr f64 FxOptionPrice(
+[[nodiscard]] f64 FxOptionPrice(
     f64 S,
     f64 K,
     f64 rd,
@@ -38,7 +38,7 @@ struct OptionParams {
     }
 }
 
-[[nodiscard]] constexpr f64 FxOptionDelta(
+[[nodiscard]] f64 FxOptionDelta(
     f64 S,
     f64 K,
     f64 rd,
@@ -46,7 +46,7 @@ struct OptionParams {
     f64 sigma,
     f64 T,
     OptionType type
-) {
+) noexcept {
     f64 sqrtT = std::sqrt(T);
     f64 d1 = (std::log(S / K) + (rd - rf + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
 
@@ -59,7 +59,7 @@ struct OptionParams {
     }
 }
 
-Percent FxOptionDeltaInPercents(
+[[nodiscard]] Percent FxOptionDeltaInPercents(
     f64 S,
     f64 K,
     f64 rd,
@@ -67,13 +67,13 @@ Percent FxOptionDeltaInPercents(
     f64 sigma,
     f64 T,
     OptionType type
-) {
+) noexcept {
     f64 price = FxOptionPrice(S=S, K=K, rd=rd, rf=rf, sigma=sigma, T=T, type=type);
     f64 delta = FxOptionDelta(S=S, K=K, rd=rd, rf=rf, sigma=sigma, T=T, type=type);
     return Percent::FromFraction(delta * S / price);
 }
 
-f64 FxOptionStrikeFromDelta(
+[[nodiscard]] f64 FxOptionStrikeFromDelta(
     f64 S,
     f64 rd,
     f64 rf,
@@ -81,7 +81,7 @@ f64 FxOptionStrikeFromDelta(
     f64 T,
     OptionType type,
     f64 delta
-) {
+) noexcept {
     f64 sqrtT = std::sqrt(T);
 
     f64 adj_delta = delta * std::exp(rf * T);
@@ -96,6 +96,102 @@ f64 FxOptionStrikeFromDelta(
     );
 
     return K;
+}
+
+[[nodiscard]] f64 FxOptionGamma(
+    f64 S,
+    f64 K,
+    f64 rd,
+    f64 rf,
+    f64 sigma,
+    f64 T,
+    [[maybe_unused]] OptionType type
+) noexcept {
+    f64 sqrtT = std::sqrt(T);
+    f64 d1 = (std::log(S / K) + (rd - rf + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
+    f64 df_f = std::exp(-rf * T);
+    return df_f * NormalPDF(d1) / (S * sigma * sqrtT);
+}
+
+[[nodiscard]] Percent FxOptionGammaInPercents(
+    f64 S,
+    f64 K,
+    f64 rd,
+    f64 rf,
+    f64 sigma,
+    f64 T,
+    [[maybe_unused]] OptionType type
+) noexcept {
+    f64 gamma = FxOptionGamma(S=S, K=K, rd=rd, rf=rf, sigma=sigma, T=T, type=type);
+    return Percent::FromFraction(gamma * S * 0.01);
+}
+
+[[nodiscard]] f64 FxOptionVega(
+    f64 S,
+    f64 K,
+    f64 rd,
+    f64 rf,
+    f64 sigma,
+    f64 T,
+    [[maybe_unused]] OptionType type
+) noexcept {
+    f64 sqrtT = std::sqrt(T);
+    f64 d1 = (std::log(S / K) + (rd - rf + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
+    f64 df_f = std::exp(-rf * T);
+    return df_f * NormalPDF(d1) * S * sqrtT;
+}
+
+[[nodiscard]] Percent FxOptionVegaInPercents(
+    f64 S,
+    f64 K,
+    f64 rd,
+    f64 rf,
+    f64 sigma,
+    f64 T,
+    [[maybe_unused]] OptionType type
+) noexcept {
+    f64 vega = FxOptionVega(S=S, K=K, rd=rd, rf=rf, sigma=sigma, T=T, type=type);
+    return Percent::FromFraction(vega * sigma * 0.1);
+}
+
+[[nodiscard]] f64 FxOptionTheta(
+    f64 S,
+    f64 K,
+    f64 rd,
+    f64 rf,
+    f64 sigma,
+    f64 T,
+    OptionType type
+) noexcept {
+    f64 sqrtT = std::sqrt(T);
+    f64 d1 = (std::log(S / K) + (rd - rf + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
+    f64 d2 = d1 - sigma * sqrtT;
+    f64 df_d = std::exp(-rd * T);
+    f64 df_f = std::exp(-rf * T);
+
+    f32 sgn = (type == OptionType::CALL) ? 1. : -1.;
+    return -S * df_f * NormalPDF(d1) * sigma / (2. * sqrtT)
+        - sgn * S * df_f * NormalCDF(sgn * d1)
+        - sgn * rd * K * df_d * NormalCDF(sgn * d2);
+}
+
+[[nodiscard]] f64 FxOptionRho(
+    f64 S,
+    f64 K,
+    f64 rd,
+    f64 rf,
+    f64 sigma,
+    f64 T,
+    OptionType type
+) noexcept {
+    f64 sqrtT = std::sqrt(T);
+    f64 d1 = (std::log(S / K) + (rd - rf + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
+    f64 d2 = d1 - sigma * sqrtT;
+    f64 df_d = std::exp(-rd * T);
+    f64 df_f = std::exp(-rf * T);
+
+    f32 sgn = (type == OptionType::CALL) ? 1. : -1.;
+    return sgn * T * K * df_d * NormalCDF(sgn * d2);
 }
 
 }  // namespace cdr

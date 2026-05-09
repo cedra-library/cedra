@@ -79,6 +79,13 @@ inline f64 Lerp(const f64 x, const f64 x1, const f64 y1, const f64 x2, const f64
     return y1 + t * (y2 - y1);
 }
 
+static f64 FlatForward(const f64 time, const f64 time1, const f64 vol1, const f64 time2, const f64 vol2) noexcept {
+    const f64 w1 = vol1*vol1 * time1;
+    const f64 w2 = vol2*vol2 * time2;
+    const f64 w = Lerp(time, time1, w1, time2, w2);
+    return std::sqrt(w / time);
+}
+
 namespace internal {
 
 template<typename Iter>
@@ -136,7 +143,7 @@ cdr::Expect<f64, Error> VolatilitySurface::Volatility(const DateType& date, f64 
     }
 
     const f64 volatility_t2 = EvaluateSpline(date_idx+1);
-    const f64 result = Lerp(target_time, dates_span[date_idx], volaility_t1, dates_span[date_idx+1], volatility_t2);
+    const f64 result = FlatForward(target_time, dates_span[date_idx], volaility_t1, dates_span[date_idx+1], volatility_t2);
 
     return Ok(result);
 }

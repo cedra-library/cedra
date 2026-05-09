@@ -1,5 +1,7 @@
 #include <vector>
 #include <utility>
+#include <random>
+#include <ranges>
 
 #include <gtest/gtest.h>
 
@@ -24,7 +26,22 @@ TEST(Normal, Correctness) {
     };
 
     for (const auto& [x, target] : test_cases) {
-        ASSERT_NEAR(cdr::NormalCDF(x), target, precision);
+        ASSERT_NEAR(cdr::NormalCDF(x), target, precision) << "x: " << x;
+    }
+    for (const auto& [x, target] : test_cases) {
+        ASSERT_NEAR(cdr::NormalCDFStdLib(x), target, precision) << "x: " << x;
+    }
+}
+
+TEST(Normal, Compare) {
+    constexpr f64 precision = 0.000001;
+
+    std::mt19937 gen(88);
+    std::uniform_real_distribution<f64> uniform(-4., 4.);
+
+    for (auto _ : std::views::iota(0, 100)) {
+        f64 x = uniform(gen);
+        ASSERT_NEAR(cdr::NormalCDFStdLib(x), cdr::NormalCDFHartAlgorithm(x), precision) << "x: " << x;
     }
 }
 
