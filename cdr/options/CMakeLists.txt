@@ -6,10 +6,12 @@ cdr_cpp_library(
     "volatility.h"
     "internal/export.h"
     "interpolation/concept.h"
+    "interpolation/cubic_spline.h"
     "interpolation/quadratic_spline.h"
   SRCS
     "contract.cc"
     "volatility.cc"
+    "interpolation/cubic_spline.cc"
     "interpolation/quadratic_spline.cc"
   DEPS
     cdr::calendar
@@ -24,6 +26,15 @@ cdr_cpp_test(
   NAME volatility_tests
   SRCS
     "volatility_tests.cc"
+  DEPS
+    cdr::options
+    GTest::gtest_main
+)
+
+cdr_cpp_test(
+  NAME cubic_spline_tests
+  SRCS
+    "interpolation/cubic_spline_tests.cc"
   DEPS
     cdr::options
     GTest::gtest_main

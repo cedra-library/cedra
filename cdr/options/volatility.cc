@@ -262,7 +262,7 @@ Expect<void, Error> VolatilitySurfaceProvider::UpdateSnapshot() noexcept {
             row_raw_vols[strike_idx] = output_value;
         }
 
-        Interpolator::InitState(&coeff_matrix_ptr[date_idx * strikes_size], strikes_, row_raw_vols);
+        Interpolator::InitState(&coeff_matrix_ptr[date_idx * strikes_size], strikes_, row_raw_vols).OrCrashProgram();
     }
 
     // Swap the new surface

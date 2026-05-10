@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cdr/types/types.h>
-#include <cdr/options/interpolation/concept.h>
+// #include <cdr/options/interpolation/concept.h>
 #include <cdr/types/errors.h>
 #include <cdr/types/expect.h>
 
@@ -9,11 +9,12 @@
 
 namespace cdr {
 
-class QuadraticSplineInterpolator {
+class CubicSplineInterpolator {
     struct SplineCoefficients {
-        f64 smile;
-        f64 skew;
-        f64 base_level;
+        f64 a;
+        f64 b;
+        f64 c;
+        f64 d;
     };
 
     struct State {
@@ -22,7 +23,7 @@ class QuadraticSplineInterpolator {
     };
 
 public:
-    static constexpr size_t StateRequiredMemory(size_t n) noexcept {
+    static constexpr size_t StateRequiredMemorySize(size_t n) noexcept {
         return n * sizeof(SplineCoefficients);
     }
 

@@ -1,22 +1,25 @@
 #include <cdr/options/interpolation/quadratic_spline.h>
 
 #include <algorithm>
+#include <memory>
 
 namespace stdr = std::ranges;
 
 namespace cdr {
 
 /* static */
-void QuadraticSplineInterpolator::InitState(void* ptr, std::span<const f64> xs, std::span<const f64> ys) noexcept {
+Expect<void, Error> QuadraticSplineInterpolator::InitState(void* ptr, std::span<const f64> xs, std::span<const f64> ys) noexcept {
     // --- Quadratic Spline Construction (C1 Continuity) ---
     // Convert raw points into a cacheable analytical form: f(dx) = smile*dx^2 + skew*dx + base_level
     const size_t size = xs.size();
-    SplineCoefficients* c_row = static_cast<SplineCoefficients*>(ptr);
+
+    auto* c_row = static_cast<SplineCoefficients*>(ptr);
+    std::uninitialized_default_construct_n(c_row, size);
 
     // Guard: A spline cannot be constructed with a single strike point
     if (size == 1) {
         c_row[0] = {0., 0., ys[0]};
-        return;
+        return Ok();
     }
 
     // Initialize the boundary condition: the derivative (slope) at the first node.
@@ -52,6 +55,7 @@ void QuadraticSplineInterpolator::InitState(void* ptr, std::span<const f64> xs, 
     // While extrapolation is blocked in Volatility(), we populate the last node
     // for memory consistency, essentially continuing the last slope as a line.
     c_row[size - 1] = {0.0, current_slope, ys[size - 1]};
+    return Ok();
 }
 
 /* static */
