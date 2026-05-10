@@ -44,6 +44,16 @@ cdr_cpp_test(
     GTest::gtest_main
 )
 
+cdr_cpp_test(
+  NAME option_tests
+  SRCS
+    "options_tests.cc"
+  DEPS
+    cdr::options
+    GTest::gtest_main
+)
+
+
 # cdr_cpp_executable(
 #   NAME
 #     volatility_benchmark
