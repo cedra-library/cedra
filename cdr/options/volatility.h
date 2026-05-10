@@ -180,7 +180,7 @@ public:
         const f64 volaility_t1 = EvaluateSpline(date_idx);
 
         if (dates_span[date_idx] == target_time || dates_span.size() == 1) {
-            return Ok(std::max(volaility_t1, 0.0));
+            return Ok<f64>(volaility_t1);
         }
 
         const f64 volatility_t2 = EvaluateSpline(date_idx+1);

@@ -20,11 +20,10 @@ TEST(VolatilityTest, SanityCheck) {
     cdr::VolatilitySurface surface = std::move(snapshot_provided).Value();
 
     // Verify exact matches at grid nodes
-    f64 volatility = surface.Volatility(cdr::NextDay(kToday), 100);
-    ASSERT_EQ(volatility, 0.01);
-    // ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 110), 0.11);
-    // ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 115), 0.12);
-    // ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 120), 0.14);
+    ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 100).Value(), 0.01);
+    ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 110).Value(), 0.11);
+    ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 115).Value(), 0.12);
+    ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 120).Value(), 0.14);
 
     // Verify horizontal extrapolation (flat clamping)
     // ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 125), 0.14);
