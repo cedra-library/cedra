@@ -341,7 +341,7 @@ public:
         return Failure(std::move(error));
     }
 
-    constexpr operator bool() const {
+    explicit constexpr operator bool() const {
         return Succeed();
     }
 
@@ -448,7 +448,7 @@ public:
         return std::move(error);
     }
 
-    constexpr operator bool() const {
+    explicit constexpr operator bool() const {
         return Succeed();
     }
 
