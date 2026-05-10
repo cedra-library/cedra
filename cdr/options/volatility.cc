@@ -131,9 +131,8 @@ cdr::Expect<f64, Error> VolatilitySurface::Volatility(const DateType& date, f64 
 
     // Compute interpolated volatility
     auto EvaluateSpline = [&](u64 date_idx) -> f64 {
-        const auto& coeffs = spline_coefficients_ptr_[date_idx * strikes_size + strike_idx];
-        const f64 dx = strike - strikes_span[strike_idx];
-        return (coeffs.smile * dx + coeffs.skew) * dx + coeffs.base_level;
+        return Interpolator::Evaluate(&spline_coefficients_ptr_[date_idx * strikes_size], strikes_span, strike)
+            .OrCrashProgram();
     };
 
     const f64 volaility_t1 = EvaluateSpline(date_idx);
@@ -263,49 +262,7 @@ Expect<void, Error> VolatilitySurfaceProvider::UpdateSnapshot() noexcept {
             row_raw_vols[strike_idx] = output_value;
         }
 
-        // --- Quadratic Spline Construction (C1 Continuity) ---
-        // Convert raw points into a cacheable analytical form: f(dx) = smile*dx^2 + skew*dx + base_level
-        SplineCoefficents* c_row = &coeff_matrix_ptr[date_idx * strikes_size];
-
-        // Guard: A spline cannot be constructed with a single strike point
-        if (strikes_size == 1) {
-            c_row[0] = {0.0, 0.0, row_raw_vols[0]};
-            continue;
-        }
-
-        // Initialize the boundary condition: the derivative (slope) at the first node.
-        // We use the slope of the first chord as a reasonable starting approximation.
-        f64 h0 = strikes_[1] - strikes_[0];
-        f64 current_slope = (row_raw_vols[1] - row_raw_vols[0]) / h0;
-
-        // Iterate through each interval [s, s+1] to "stitch" parabolas together
-        for (u64 s = 0; s < strikes_size - 1; ++s) {
-            const f64 x0 = strikes_[s];
-            const f64 x1 = strikes_[s + 1];
-            const f64 y0 = row_raw_vols[s];
-            const f64 y1 = row_raw_vols[s + 1];
-            const f64 h = x1 - x0;
-
-            // base_level: The function value at the left node of the interval
-            c_row[s].base_level = y0;
-
-            // skew: The incoming slope (derivative) for this interval.
-            // Passing this value from the previous segment ensures C1 continuity (no kinks).
-            c_row[s].skew = current_slope;
-
-            // smile: The curvature of the parabola. Derived algebraically to ensure
-            // the parabola intersects the right node (y1) exactly.
-            c_row[s].smile = (y1 - y0 - current_slope * h) / (h * h);
-
-            // "Slope Handoff": Calculate the derivative at the end of the current interval (at x1).
-            // This becomes the 'skew' for the next segment. Formula: f'(dx) = 2*a*dx + b
-            current_slope = 2.0 * c_row[s].smile * h + c_row[s].skew;
-        }
-
-        // Finalize the last node.
-        // While extrapolation is blocked in Volatility(), we populate the last node
-        // for memory consistency, essentially continuing the last slope as a line.
-        c_row[strikes_size - 1] = {0.0, current_slope, row_raw_vols[strikes_size - 1]};
+        Interpolator::InitState(&coeff_matrix_ptr[date_idx * strikes_size], strikes_, row_raw_vols).OrCrashProgram();
     }
 
     // Swap the new surface
