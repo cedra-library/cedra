@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <memory>
 
-namespace stdr = std::ranges;
 
 namespace cdr {
 

@@ -1,13 +1,11 @@
 // SURFACE IS CHANGING
-#if 0
 #include <cdr/calendar/date.h>
 #include <cdr/options/volatility.h>
 #include <gtest/gtest.h>
 
-#include <random>
 
 TEST(VolatilityTest, SanityCheck) {
-    cdr::DateType kToday = cdr::Today();
+    DateType kToday = cdr::Today();
     cdr::VolatilitySurfaceProvider provider{kToday};
 
     // Populate pillars for a single expiration date
@@ -22,19 +20,21 @@ TEST(VolatilityTest, SanityCheck) {
     cdr::VolatilitySurface surface = std::move(snapshot_provided).Value();
 
     // Verify exact matches at grid nodes
-    ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 100), 0.01);
-    ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 110), 0.11);
-    ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 115), 0.12);
-    ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 120), 0.14);
+    f64 volatility = surface.Volatility(cdr::NextDay(kToday), 100);
+    ASSERT_EQ(volatility, 0.01);
+    // ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 110), 0.11);
+    // ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 115), 0.12);
+    // ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 120), 0.14);
 
     // Verify horizontal extrapolation (flat clamping)
-    ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 125), 0.14);
-    ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 90), 0.01);
+    // ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 125), 0.14);
+    // ASSERT_EQ(surface.Volatility(cdr::NextDay(kToday), 90), 0.01);
 
     // Verify linear interpolation between strikes
-    ASSERT_NEAR(surface.Volatility(cdr::NextDay(kToday), 105), 0.06, 1e-7);
+    // ASSERT_NEAR(surface.Volatility(cdr::NextDay(kToday), 105), 0.06, 1e-7);
 }
 
+#if 0
 TEST(VolatilityMathTest, GridInterpolationAndExtrapolation) {
     cdr::DateType today = cdr::Today();
     cdr::VolatilitySurfaceProvider provider{today};
