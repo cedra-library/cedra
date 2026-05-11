@@ -22,7 +22,7 @@ struct StateOwner {
     }
 
     ~StateOwner() {
-        std::free(memory);
+        cdr::AlignedFree(memory);
     }
 };
 
