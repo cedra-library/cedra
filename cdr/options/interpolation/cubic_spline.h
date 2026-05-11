@@ -6,10 +6,12 @@
 #include <cdr/types/expect.h>
 
 #include <span>
+#include <cdr/options/internal/export.h>
 
 namespace cdr {
 
-class CubicSplineInterpolator {
+class CDR_OPTIONS_EXPORT CubicSplineInterpolator {
+public:
     struct SplineCoefficients {
         f64 a;
         f64 b;
@@ -21,6 +23,8 @@ class CubicSplineInterpolator {
         size_t size;
         SplineCoefficients* coefs_ptr;
     };
+
+    using StrikeVolatilityType = SplineCoefficients;
 
 public:
     static constexpr size_t StateRequiredMemorySize(size_t n) noexcept {

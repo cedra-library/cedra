@@ -8,11 +8,15 @@ cdr_cpp_library(
     "interpolation/concept.h"
     "interpolation/cubic_spline.h"
     "interpolation/quadratic_spline.h"
+    "interpolation/lerp.h"
+    "interpolation/flat_forward.h"
   SRCS
     "contract.cc"
-    "volatility.cc"
+    #"volatility.cc"
     "interpolation/cubic_spline.cc"
     "interpolation/quadratic_spline.cc"
+    "interpolation/lerp.cc"
+    "interpolation/flat_forward.cc"
   DEPS
     cdr::calendar
     cdr::base
@@ -40,16 +44,16 @@ cdr_cpp_test(
     GTest::gtest_main
 )
 
-cdr_cpp_executable(
-  NAME
-    volatility_benchmark
-  SRCS
-    "volatility_bench.cc"
-  DEPS
-    cdr::options
-    cdr::calendar
-    benchmark::benchmark
-  COPTS
-    "-O3"
-  BENCH
-)
+# cdr_cpp_executable(
+#   NAME
+#     volatility_benchmark
+#   SRCS
+#     "volatility_bench.cc"
+#   DEPS
+#     cdr::options
+#     cdr::calendar
+#     benchmark::benchmark
+#   COPTS
+#     "-O3"
+#   BENCH
+# )

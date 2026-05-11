@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cdr/options/interpolation/cubic_spline.h>
+#include <cdr/base/aligned_alloc.h>
 
 #include <vector>
 
@@ -17,11 +18,11 @@ struct StateOwner {
     StateOwner(size_t n) {
         size = Interpolator::StateRequiredMemorySize(n);
         size_t alignment = Interpolator::StateRequiredMemoryAlignment(n);
-        memory = std::aligned_alloc(alignment, size);
+        memory = cdr::AlignedAlloc(alignment, size);
     }
 
     ~StateOwner() {
-        std::free(memory);
+        cdr::AlignedFree(memory);
     }
 };
 
