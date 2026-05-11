@@ -425,6 +425,7 @@ public:
                 row_raw_vols[strike_idx] = output_value;
             }
 
+<<<<<<< HEAD
             Interpolation::InitState(&states_ptr[date_idx * interp_state_aligned_size], strikes_, row_raw_vols)
                 .OrCrashProgram();
 
@@ -503,6 +504,81 @@ public:
 
             Interpolation::InitState(&delta_states_ptr[date_idx * delta_interp_state_aligned_size], pillar_deltas_, delta_raw_vols)
                 .OrCrashProgram();
+
+            // --- Precompute delta smile ---
+            const DateType target_date = pillars_iter->first;
+
+            const f64 T = dates_[date_idx];
+            const u64 deltas_size = pillar_deltas_.size();
+
+            const f64 rd =
+                domestic_curve.Interpolated<Linear>(target_date, domestic_curve.Calendar(), domestic_curve.GetJurisdiction())
+                    .Fraction();
+
+            const f64 rf =
+                foreign_curve.Interpolated<Linear>(target_date, foreign_curve.Calendar(), foreign_curve.GetJurisdiction())
+                    .Fraction();
+
+            auto EvaluateLocalSpline = [&](f64 K) -> f64 {
+                if (strikes_size == 0) {
+                    return 0.0;
+                }
+
+                if (K <= strikes_.front()) {
+                    return Interpolation::Evaluate(&states_ptr[date_idx * strikes_size], strikes_, strikes_.front())
+                        .OrCrashProgram();
+                }
+
+                if (K >= strikes_.back()) {
+                    return Interpolation::Evaluate(&states_ptr[date_idx * strikes_size], strikes_, strikes_.back())
+                        .OrCrashProgram();
+                }
+
+                return Interpolation::Evaluate(&states_ptr[date_idx * strikes_size], strikes_, K).OrCrashProgram();
+            };
+
+            const f64 max_achievable_delta = std::exp(-rf * T);
+
+            for (u64 d_idx = 0; d_idx < deltas_size; ++d_idx) {
+                f64 target_delta = pillar_deltas_[d_idx];
+
+                // Clamp impossible deltas
+                if (std::abs(target_delta) >= max_achievable_delta) {
+                    const f64 sign = (target_delta > 0.0) ? 1.0 : -1.0;
+                    target_delta = sign * (max_achievable_delta - 1e-5);
+                }
+
+                const OptionType type = (target_delta > 0.0) ? OptionType::CALL : OptionType::PUT;
+
+                // Initial ATM vol guess
+                const f64 atm_vol = std::max(EvaluateLocalSpline(spot), 1e-4);
+
+                // Black-Scholes closed-form strike guess
+                const f64 guess_K = FxOptionStrikeFromDelta(spot, rd, rf, atm_vol, T, type, target_delta);
+
+                auto objective = [&](f64 K) -> f64 {
+                    const f64 vol = std::max(EvaluateLocalSpline(K), 1e-4);
+
+                    return FxOptionDelta(spot, K, rd, rf, vol, T, type) - target_delta;
+                };
+
+                const f64 left_bound = strikes_.front();
+                const f64 right_bound = strikes_.back();
+
+                f64 solved_K = guess_K;
+
+                auto root_search = FindRoot(objective, left_bound, right_bound, guess_K);
+
+                if (root_search.Succeed()) {
+                    solved_K = root_search.Value();
+                }
+
+                const f64 target_vol = std::max(EvaluateLocalSpline(solved_K), 0.0);
+
+                delta_raw_vols[d_idx] = target_vol;
+            }
+
+            Interpolation::InitState(&delta_states_ptr[date_idx * deltas_size], pillar_deltas_, delta_raw_vols).OrCrashProgram();
         }
 
         // Swap the new surface
