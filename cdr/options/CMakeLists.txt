@@ -32,6 +32,9 @@ cdr_cpp_test(
     "volatility_tests.cc"
   DEPS
     cdr::options
+    cdr::curve
+    cdr::calendar
+    cdr::market
     GTest::gtest_main
 )
 
