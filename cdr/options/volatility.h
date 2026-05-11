@@ -38,9 +38,14 @@ constexpr u64 IndexFromIterator(Iter begin, u64 size, Iter it) {
     return idx;
 }
 
+inline u64 AlignSize(const u64 size, const u64 alignment) noexcept {
+    CDR_CHECK((alignment & (alignment - 1)) == 0) << "Alignment must be a power of two.";
+    const u64 mask = alignment - 1;
+    return (size + mask) & ~mask;
+}
+
 inline u64 AlignToCacheLine(const u64 size) noexcept {
-    static constexpr u64 cache_line_size = kHardwareDestructiveInterferenceSize - 1;
-    return (size + cache_line_size) & ~cache_line_size;
+    return AlignSize(size, kHardwareDestructiveInterferenceSize);
 }
 
 } // namespace internal
@@ -58,7 +63,7 @@ public:
 
         u32 strikes_byte_offset;
         u32 dates_byte_offset;
-        u32 volatility_byte_offset;
+        u32 states_byte_offset;
 
         mutable std::atomic<u32> reference_count;
 
@@ -74,7 +79,7 @@ public:
         header_ptr_ = static_cast<SurfaceHeader*>(incremented_base); auto* base_ptr = static_cast<std::byte*>(incremented_base);
         strikes_ptr_ = reinterpret_cast<f64*>(base_ptr + header_ptr_->strikes_byte_offset);
         dates_ptr_ = reinterpret_cast<f64*>(base_ptr + header_ptr_->dates_byte_offset);
-        spline_coefficients_ptr_ = reinterpret_cast<StrikeVolatilityType*>(base_ptr + header_ptr_->volatility_byte_offset);
+        spline_coefficients_ptr_ = reinterpret_cast<StrikeVolatilityType*>(base_ptr + header_ptr_->states_byte_offset);
     }
 
     VolatilitySurface(const VolatilitySurface& other) noexcept {
@@ -256,16 +261,20 @@ public:
         strikes_.erase(stdr::unique(strikes_).begin(), strikes_.end());
 
         // Compute sizes
+        const u64 interp_state_aligned_size =
+            internal::AlignSize(Interpolator::StateRequiredMemorySize(strikes_.size()),
+                                Interpolator::StateRequiredMemoryAlignment(strikes_.size()));
         constexpr u64 header_size = sizeof(SurfaceHeader);
         const u64 strikes_size_bytes = strikes_.size() * sizeof(f64);
         const u64 dates_size_bytes = dates_.size() * sizeof(f64);
-        const u64 matrix_size_bytes = dates_.size() * strikes_.size() * sizeof(StrikeVolatilityType);
+        const u64 interp_states_size = dates_.size() * interp_state_aligned_size;
 
         // Compute aligned offsets
         const u64 strikes_offset = internal::AlignToCacheLine(header_size);
         const u64 dates_offset = internal::AlignToCacheLine(strikes_offset + strikes_size_bytes);
-        const u64 matrix_offset = internal::AlignToCacheLine(dates_offset + dates_size_bytes);
-        const u64 total_size = internal::AlignToCacheLine(matrix_offset + matrix_size_bytes);
+        const u64 states_offset = internal::AlignSize(dates_offset + dates_size_bytes,
+                                                      Interpolator::StateRequiredMemoryAlignment(strikes_.size()));
+        const u64 total_size = internal::AlignToCacheLine(states_offset + interp_states_size);
 
         // Allocate buffer
         std::byte* buffer_ptr =
@@ -284,13 +293,13 @@ public:
 
         header->strikes_byte_offset = strikes_offset;
         header->dates_byte_offset = dates_offset;
-        header->volatility_byte_offset = matrix_offset;
+        header->states_byte_offset = states_offset;
         header->total_size_in_bytes = total_size;
 
         // Pointers to payload areas
         f64* strikes_ptr = reinterpret_cast<f64*>(buffer_ptr + strikes_offset);
         f64* dates_ptr = reinterpret_cast<f64*>(buffer_ptr + dates_offset);
-        StrikeVolatilityType* coeff_matrix_ptr = reinterpret_cast<StrikeVolatilityType*>(buffer_ptr + matrix_offset);
+        StrikeVolatilityType* states_ptr = reinterpret_cast<StrikeVolatilityType*>(buffer_ptr + states_offset);
 
         // Copy strikes and dates
         std::memcpy(strikes_ptr, strikes_.data(), strikes_size_bytes);
@@ -328,7 +337,8 @@ public:
                 row_raw_vols[strike_idx] = output_value;
             }
 
-            Interpolator::InitState(&coeff_matrix_ptr[date_idx * strikes_size], strikes_, row_raw_vols).OrCrashProgram();
+            Interpolator::InitState(&states_ptr[date_idx * interp_state_aligned_size], strikes_, row_raw_vols)
+                .OrCrashProgram();
         }
 
         // Swap the new surface

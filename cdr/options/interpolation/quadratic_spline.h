@@ -26,7 +26,7 @@ public:
     using StrikeVolatilityType = SplineCoefficients;
 
 public:
-    static constexpr size_t StateRequiredMemory(size_t n) noexcept {
+    static constexpr size_t StateRequiredMemorySize(size_t n) noexcept {
         return n * sizeof(SplineCoefficients);
     }
 
