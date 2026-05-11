@@ -24,6 +24,7 @@ public:
     };
 
     using StrikeVolatilityType = SplineCoefficients;
+    using DeltaVolatilityType = SplineCoefficients;
 
 public:
     static constexpr size_t StateRequiredMemorySize(size_t n) noexcept {

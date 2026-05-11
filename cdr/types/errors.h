@@ -16,6 +16,7 @@ enum class Error {
     ExtrapolationNotAllowed,
     TimeExtrapolationNotAllowed,
     StrikeExtrapolationNotAllowed,
+    DeltaExtrapolationNotAllowed,
     __NumberOfErrors,
 };
 
@@ -71,6 +72,10 @@ constexpr Failure<Error> ErrorStrikeExtrapolationNotAllowed() {
     return Failure<Error>(Error::StrikeExtrapolationNotAllowed);
 }
 
+constexpr Failure<Error> ErrorDeltaExtrapolationNotAllowed() {
+    return Failure<Error>(Error::DeltaExtrapolationNotAllowed);
+}
+
 [[nodiscard]] constexpr std::string_view ErrorAsStringView(const Error error) noexcept {
     switch (error) {
     case Error::ContractWithoutNPV:               return "Contract without NPV";
@@ -86,6 +91,7 @@ constexpr Failure<Error> ErrorStrikeExtrapolationNotAllowed() {
     case Error::ExtrapolationNotAllowed:         return "Extrapolation is not allowed";
     case Error::TimeExtrapolationNotAllowed:     return "Time extrapolation is not allowed";
     case Error::StrikeExtrapolationNotAllowed:   return "Strike extrapolation is not allowed";
+    case Error::DeltaExtrapolationNotAllowed:    return "Delta extrapolation is not allowed";
     case Error::__NumberOfErrors:                [[fallthrough]];
     default:                                     return "Unknown error";
     }

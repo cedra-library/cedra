@@ -9,6 +9,7 @@
 #include <cdr/base/aligned_alloc.h>
 #include <cdr/base/hardware_interference_size.h>
 #include <algorithm>
+#include <memory>
 #include <ranges>
 #include <map>
 #include <vector>
@@ -16,13 +17,16 @@
 #include <cdr/options/interpolation/quadratic_spline.h>
 #include <cdr/options/interpolation/lerp.h>
 #include <cdr/options/interpolation/flat_forward.h>
+#include <cdr/curve/interpolation/linear.h>
+#include <cdr/curve/curve.h>
+#include <cdr/options/helpers.h>
 
 
 namespace cdr {
 
 
 // Forward decl
-template<typename Interpolator>
+template<typename Interpolation>
 class VolatilitySurfaceProvider;
 
 namespace internal {
@@ -50,7 +54,7 @@ inline u64 AlignToCacheLine(const u64 size) noexcept {
 
 } // namespace internal
 
-template<typename Interpolator = QuadraticSplineInterpolator>
+template<typename Interpolation = QuadraticSplineInterpolator>
 class VolatilitySurface {
 public:
 
@@ -60,17 +64,27 @@ public:
 
         u32 strikes_size;
         u32 dates_size;
+        u32 pillar_deltas_size;
 
         u32 strikes_byte_offset;
         u32 dates_byte_offset;
+        u32 pillar_deltas_byte_offset;
         u32 states_byte_offset;
+        u32 deltas_byte_offset;
+
+        f64 spot;
 
         mutable std::atomic<u32> reference_count;
 
         size_t total_size_in_bytes;
     };
 
-    using StrikeVolatilityType = typename Interpolator::StrikeVolatilityType;
+    using StrikeVolatilityType = typename Interpolation::StrikeVolatilityType;
+    using DeltaVolatilityType = typename Interpolation::DeltaVolatilityType;
+
+    static constexpr f64 kTimeEpsilon = 1e-4;
+    static constexpr f64 kStrikeEpsilon = 1e-4;
+    static constexpr f64 kDeltaEpsilon = 1e-4;
 
 public:
 
@@ -78,8 +92,10 @@ public:
         CDR_CHECK(incremented_base != nullptr) << "VolatilitySurface cannot be nullptr.";
         header_ptr_ = static_cast<SurfaceHeader*>(incremented_base); auto* base_ptr = static_cast<std::byte*>(incremented_base);
         strikes_ptr_ = reinterpret_cast<f64*>(base_ptr + header_ptr_->strikes_byte_offset);
+        pillar_deltas_ptr_ = reinterpret_cast<f64*>(base_ptr + header_ptr_->pillar_deltas_byte_offset);
         dates_ptr_ = reinterpret_cast<f64*>(base_ptr + header_ptr_->dates_byte_offset);
         spline_coefficients_ptr_ = reinterpret_cast<StrikeVolatilityType*>(base_ptr + header_ptr_->states_byte_offset);
+        deltas_volatility_ptr_ = reinterpret_cast<DeltaVolatilityType*>(base_ptr + header_ptr_->deltas_byte_offset);
     }
 
     VolatilitySurface(const VolatilitySurface& other) noexcept {
@@ -87,10 +103,11 @@ public:
 
         header_ptr_ = other.header_ptr_;
         strikes_ptr_ = other.strikes_ptr_;
+        pillar_deltas_ptr_ = other.pillar_deltas_ptr_;
         dates_ptr_ = other.dates_ptr_;
         spline_coefficients_ptr_ = other.spline_coefficients_ptr_;
+        deltas_volatility_ptr_ = other.deltas_volatility_ptr_;
     }
-
 
     VolatilitySurface& operator=(const VolatilitySurface& other) noexcept {
         if (&other != this) [[likely]] {
@@ -101,8 +118,10 @@ public:
 
             header_ptr_ = other.header_ptr_;
             strikes_ptr_ = other.strikes_ptr_;
+            pillar_deltas_ptr_ = other.pillar_deltas_ptr_;
             dates_ptr_ = other.dates_ptr_;
             spline_coefficients_ptr_ = other.spline_coefficients_ptr_;
+            deltas_volatility_ptr_ = other.deltas_volatility_ptr_;
         }
 
         return *this;
@@ -111,18 +130,23 @@ public:
     VolatilitySurface(VolatilitySurface&& other) noexcept
         : header_ptr_(std::exchange(other.header_ptr_, nullptr))
         , strikes_ptr_(std::exchange(other.strikes_ptr_, nullptr))
+        , pillar_deltas_ptr_(std::exchange(other.pillar_deltas_ptr_, nullptr))
         , dates_ptr_(std::exchange(other.dates_ptr_, nullptr))
         , spline_coefficients_ptr_(std::exchange(other.spline_coefficients_ptr_, nullptr))
+        , deltas_volatility_ptr_(std::exchange(other.deltas_volatility_ptr_, nullptr))
     {}
 
 
     VolatilitySurface& operator=(VolatilitySurface&& other) noexcept {
         if (&other != this) [[likely]] {
             this->Reclaim();
+
             header_ptr_ = std::exchange(other.header_ptr_, nullptr);
             strikes_ptr_ = std::exchange(other.strikes_ptr_, nullptr);
+            pillar_deltas_ptr_ = std::exchange(other.pillar_deltas_ptr_, nullptr);
             dates_ptr_ = std::exchange(other.dates_ptr_, nullptr);
             spline_coefficients_ptr_ = std::exchange(other.spline_coefficients_ptr_, nullptr);
+            deltas_volatility_ptr_ = std::exchange(other.deltas_volatility_ptr_, nullptr);
         }
         return *this;
     }
@@ -145,54 +169,39 @@ public:
         return {dates_ptr_, header_ptr_->dates_size};
     }
 
+    [[nodiscard]] std::span<const f64> PillarDeltas() const noexcept {
+        return {pillar_deltas_ptr_, header_ptr_->pillar_deltas_size};
+    }
+
     [[nodiscard]] cdr::Expect<f64, Error> Volatility(const DateType& date, f64 strike) const noexcept {
-        if (header_ptr_ == nullptr) [[unlikely]] {
+        if (header_ptr_ == nullptr) [[unlikely]]
             return ErrorNoData();
-        }
 
-        // QoL constants
-        const f64 target_time = Period{Today(), date}.Act365();
         const auto strikes_span = Strikes();
-        const auto dates_span = Dates();
-        const u32 strikes_size = header_ptr_->strikes_size;
-
-        // Validate that date can be interpolated
-        if (target_time < dates_span.front() || target_time > dates_span.back()) [[unlikely]] {
-            return ErrorTimeExtrapolationNotAllowed();
-        }
-
-        // Validate that strike can be interpolated
-        if (strike < strikes_span.front() || strike > strikes_span.back()) [[unlikely]] {
+        if (strike < strikes_span.front() - kStrikeEpsilon || strike > strikes_span.back() + kStrikeEpsilon) [[unlikely]] {
             return ErrorStrikeExtrapolationNotAllowed();
         }
 
-        namespace stdr = std::ranges;
-
-        // Obtain date on surface
-        auto date_it = stdr::lower_bound(dates_span, target_time);
-        u64 date_idx = internal::IndexFromIterator(dates_span.begin(), dates_span.size(), date_it);
-
-        // Obtain strike
-        auto strike_it = stdr::lower_bound(strikes_span, strike);
-        u64 strike_idx = internal::IndexFromIterator(strikes_span.begin(), strikes_span.size(), strike_it);
-
-        // Compute interpolated volatility
-        auto EvaluateSpline = [&](u64 date_idx) -> f64 {
-            return Interpolator::Evaluate(&spline_coefficients_ptr_[date_idx * strikes_size], strikes_span, strike)
+        const u32 strikes_size = header_ptr_->strikes_size;
+        return InterpolateInTime(date, [&](u64 idx) {
+            return Interpolation::Evaluate(&spline_coefficients_ptr_[idx * strikes_size], strikes_span, strike)
                 .OrCrashProgram();
-        };
+        });
+    }
 
-        const f64 volaility_t1 = EvaluateSpline(date_idx);
+    [[nodiscard]] cdr::Expect<f64, Error> VolatilityByDelta(const DateType& date, f64 delta) const noexcept {
+        if (header_ptr_ == nullptr) [[unlikely]]
+            return ErrorNoData();
 
-        if (dates_span[date_idx] == target_time || dates_span.size() == 1) {
-            return Ok<f64>(volaility_t1);
+        const auto deltas_span = PillarDeltas();
+        if (delta < deltas_span.front() - kDeltaEpsilon || delta > deltas_span.back() + kDeltaEpsilon) [[unlikely]] {
+            return ErrorDeltaExtrapolationNotAllowed();
         }
 
-        const f64 volatility_t2 = EvaluateSpline(date_idx+1);
-        const f64 result = FlatForward(target_time, dates_span[date_idx], volaility_t1, dates_span[date_idx+1], volatility_t2);
-
-        return Ok(result);
-
+        const u64 deltas_size = header_ptr_->pillar_deltas_size;
+        return InterpolateInTime(date, [&](u64 idx) {
+            return Interpolation::Evaluate(&deltas_volatility_ptr_[idx * deltas_size], deltas_span, delta).OrCrashProgram();
+        });
     }
 
 private:
@@ -212,28 +221,69 @@ private:
         return false;
     }
 
+    template<typename F>
+    [[nodiscard]] cdr::Expect<f64, Error> InterpolateInTime(const DateType& date, F&& evaluate_at_idx) const noexcept {
+        const f64 target_time = Period{Header().today, date}.Act365();
+        const auto dates_span = Dates();
+
+        // Проверка границ по времени
+        if (target_time < dates_span.front() - kTimeEpsilon || target_time > dates_span.back() + kTimeEpsilon) {
+            return ErrorTimeExtrapolationNotAllowed();
+        }
+
+        auto date_it = std::ranges::lower_bound(dates_span, target_time);
+        u64 date_idx = internal::IndexFromIterator(dates_span.begin(), dates_span.size(), date_it);
+
+        const f64 vol_t1 = evaluate_at_idx(date_idx);
+
+        // Если попали точно в дату или в наборе всего одна дата
+        if (dates_span[date_idx] == target_time || dates_span.size() == 1) {
+            return Ok<f64>(vol_t1);
+        }
+
+        const f64 vol_t2 = evaluate_at_idx(date_idx + 1);
+        return Ok(FlatForward(target_time, dates_span[date_idx], vol_t1, dates_span[date_idx + 1], vol_t2));
+    }
 private:
     const SurfaceHeader* header_ptr_;
+    const f64* pillar_deltas_ptr_;
     const f64* strikes_ptr_;
     const f64* dates_ptr_;
     const StrikeVolatilityType* spline_coefficients_ptr_;
+    const DeltaVolatilityType* deltas_volatility_ptr_;
 };
 
 
-template<typename Interpolator = QuadraticSplineInterpolator>
+template<typename Interpolation = QuadraticSplineInterpolator>
 class VolatilitySurfaceProvider {
 public:
 
     using StrikeType = f64;
     using VolatilityType = f64;
 
-    using StrikeVolatilityType = typename Interpolator::StrikeVolatilityType;
-    using SurfaceType = VolatilitySurface<Interpolator>;
+    using StrikeVolatilityType = typename Interpolation::StrikeVolatilityType;
+    using DeltaVolatilityType = typename Interpolation::DeltaVolatilityType;
+
+    using SurfaceType = VolatilitySurface<Interpolation>;
     using SurfaceHeader = typename SurfaceType::SurfaceHeader;
+
 public:
 
 
     explicit VolatilitySurfaceProvider(const DateType& today) : today_(today), surface_ptr_(nullptr) {
+    }
+
+
+    [[nodiscard]] Expect<void, Error> AddPillarDelta(f64 value) {
+        pillar_deltas_.push_back(value);
+        return Ok();
+    }
+
+    void ErasePillarDelta(f64 value) {
+        auto found_iter = std::ranges::find(pillar_deltas_, value);
+        if (found_iter != pillar_deltas_.end()) {
+            pillar_deltas_.erase(found_iter);
+        }
     }
 
     Expect<void, Error> AddPillar(const DateType& date, const StrikeType strike,
@@ -249,7 +299,8 @@ public:
         return Ok();
     }
 
-    Expect<void, Error> UpdateSnapshot() noexcept {
+    [[nodiscard]] Expect<void, Error> UpdateSnapshot(const f64 spot, const Curve& domestic_curve,
+                                                     const Curve& foreign_curve) noexcept {
         namespace stdr = std::ranges;
 
         // Sort and remove duplicates in dates
@@ -260,25 +311,42 @@ public:
         stdr::sort(strikes_);
         strikes_.erase(stdr::unique(strikes_).begin(), strikes_.end());
 
+        // Sort and remove duplicates in deltas
+        stdr::sort(pillar_deltas_);
+        pillar_deltas_.erase(stdr::unique(pillar_deltas_).begin(), pillar_deltas_.end());
+
         // Compute sizes
         const u64 interp_state_aligned_size =
-            internal::AlignSize(Interpolator::StateRequiredMemorySize(strikes_.size()),
-                                Interpolator::StateRequiredMemoryAlignment(strikes_.size()));
+            internal::AlignSize(Interpolation::StateRequiredMemorySize(strikes_.size()),
+                                Interpolation::StateRequiredMemoryAlignment(strikes_.size()));
+
+        const u64 delta_interp_state_aligned_size =
+            internal::AlignSize(Interpolation::StateRequiredMemorySize(pillar_deltas_.size()),
+                                Interpolation::StateRequiredMemoryAlignment(pillar_deltas_.size()));
+
         constexpr u64 header_size = sizeof(SurfaceHeader);
+
         const u64 strikes_size_bytes = strikes_.size() * sizeof(f64);
+        const u64 pillar_deltas_size_bytes = pillar_deltas_.size() * sizeof(f64);
         const u64 dates_size_bytes = dates_.size() * sizeof(f64);
+
         const u64 interp_states_size = dates_.size() * interp_state_aligned_size;
+        const u64 delta_interp_states_size = dates_.size() * delta_interp_state_aligned_size;
 
         // Compute aligned offsets
         const u64 strikes_offset = internal::AlignToCacheLine(header_size);
-        const u64 dates_offset = internal::AlignToCacheLine(strikes_offset + strikes_size_bytes);
+        const u64 pillar_deltas_offset = internal::AlignToCacheLine(strikes_offset + strikes_size_bytes);
+        const u64 dates_offset = internal::AlignToCacheLine(pillar_deltas_offset + pillar_deltas_size_bytes);
         const u64 states_offset = internal::AlignSize(dates_offset + dates_size_bytes,
-                                                      Interpolator::StateRequiredMemoryAlignment(strikes_.size()));
-        const u64 total_size = internal::AlignToCacheLine(states_offset + interp_states_size);
+                                                      Interpolation::StateRequiredMemoryAlignment(strikes_.size()));
+        const u64 delta_states_offset = internal::AlignSize(
+            states_offset + interp_states_size, Interpolation::StateRequiredMemoryAlignment(pillar_deltas_.size()));
+        const u64 total_size = internal::AlignToCacheLine(delta_states_offset + delta_interp_states_size);
 
         // Allocate buffer
         std::byte* buffer_ptr =
             static_cast<std::byte*>(cdr::AlignedAlloc(kHardwareDestructiveInterferenceSize, total_size));
+
         if (!buffer_ptr) [[unlikely]] {
             return ErrorNoMemory();
         }
@@ -288,70 +356,159 @@ public:
 
         header->today = today_;
         header->strikes_size = strikes_.size();
+        header->pillar_deltas_size = pillar_deltas_.size();
         header->dates_size = dates_.size();
+
         header->reference_count.store(1, std::memory_order_relaxed);
 
+        header->spot = spot;
+
         header->strikes_byte_offset = strikes_offset;
+        header->pillar_deltas_byte_offset = pillar_deltas_offset;
         header->dates_byte_offset = dates_offset;
         header->states_byte_offset = states_offset;
+        header->deltas_byte_offset = delta_states_offset;
         header->total_size_in_bytes = total_size;
 
         // Pointers to payload areas
         f64* strikes_ptr = reinterpret_cast<f64*>(buffer_ptr + strikes_offset);
+
+        f64* pillar_deltas_ptr = reinterpret_cast<f64*>(buffer_ptr + pillar_deltas_offset);
+
         f64* dates_ptr = reinterpret_cast<f64*>(buffer_ptr + dates_offset);
+
         StrikeVolatilityType* states_ptr = reinterpret_cast<StrikeVolatilityType*>(buffer_ptr + states_offset);
+
+        DeltaVolatilityType* delta_states_ptr = reinterpret_cast<DeltaVolatilityType*>(buffer_ptr + delta_states_offset);
 
         // Copy strikes and dates
         std::memcpy(strikes_ptr, strikes_.data(), strikes_size_bytes);
+        std::memcpy(pillar_deltas_ptr, pillar_deltas_.data(), pillar_deltas_size_bytes);
         std::memcpy(dates_ptr, dates_.data(), dates_size_bytes);
 
-        // Fill volatility matrix (unchanged logic)
+        // Fill volatility matrix
         const u64 strikes_size = strikes_.size();
         const u64 dates_size = dates_.size();
+
         auto pillars_iter = pillars_.cbegin();
 
         std::vector<f64> row_raw_vols(strikes_size);
+        std::vector<f64> delta_raw_vols(pillar_deltas_.size());
 
         for (u64 date_idx = 0; date_idx < dates_size; ++date_idx, ++pillars_iter) {
-            // --- Grid Projection ---
-            // Market quotes (pillars) may not exist for every strike in our global grid.
-            // We project available market data onto the global grid using linear interpolation.
             const auto& date_strikes = pillars_iter->second;
+
             for (u64 strike_idx = 0; strike_idx < strikes_size; ++strike_idx) {
                 auto pillar_iter = date_strikes.lower_bound(strikes_[strike_idx]);
 
                 f64 output_value = 0.0;
+
                 if (pillar_iter == date_strikes.end()) {
-                    // Strike is beyond the last known market pillar: apply flat right-extrapolation
                     output_value = std::prev(pillar_iter)->second;
                 } else if (pillar_iter->first == strikes_[strike_idx] || pillar_iter == date_strikes.begin()) {
-                    // Exact match or strike is before the first market pillar: apply flat left-extrapolation
                     output_value = pillar_iter->second;
                 } else {
-                    // Strike is between two market pillars: linearly interpolate to find the anchor point
                     auto [prev_strike, prev_vol] = *std::prev(pillar_iter);
                     auto [curr_strike, curr_vol] = *pillar_iter;
+
                     output_value = Lerp(strikes_[strike_idx], prev_strike, prev_vol, curr_strike, curr_vol);
                 }
-                // Store the intermediate value in the temporary row buffer
+
                 row_raw_vols[strike_idx] = output_value;
             }
 
-            Interpolator::InitState(&states_ptr[date_idx * interp_state_aligned_size], strikes_, row_raw_vols)
+            Interpolation::InitState(&states_ptr[date_idx * strikes_size], strikes_, row_raw_vols)
+                .OrCrashProgram();
+
+            // --- Precompute delta smile ---
+            const DateType target_date = pillars_iter->first;
+
+            const f64 T = dates_[date_idx];
+            const u64 deltas_size = pillar_deltas_.size();
+
+            const f64 rd =
+                domestic_curve
+                    .Interpolated<Linear>(target_date, domestic_curve.Calendar(), domestic_curve.GetJurisdiction())
+                    .Fraction();
+
+            const f64 rf =
+                foreign_curve.Interpolated<Linear>(target_date, foreign_curve.Calendar(), foreign_curve.GetJurisdiction())
+                    .Fraction();
+
+            auto EvaluateLocalSpline = [&](f64 K) -> f64 {
+                if (strikes_size == 0) {
+                    return 0.0;
+                }
+
+                if (K <= strikes_.front()) {
+                    return Interpolation::Evaluate(&states_ptr[date_idx * strikes_size], strikes_,
+                                                   strikes_.front())
+                        .OrCrashProgram();
+                }
+
+                if (K >= strikes_.back()) {
+                    return Interpolation::Evaluate(&states_ptr[date_idx * strikes_size], strikes_,
+                                                   strikes_.back())
+                        .OrCrashProgram();
+                }
+
+                return Interpolation::Evaluate(&states_ptr[date_idx * strikes_size], strikes_, K)
+                    .OrCrashProgram();
+            };
+
+            const f64 max_achievable_delta = std::exp(-rf * T);
+
+            for (u64 d_idx = 0; d_idx < deltas_size; ++d_idx) {
+                f64 target_delta = pillar_deltas_[d_idx];
+
+                if (std::abs(target_delta) >= max_achievable_delta) {
+                    const f64 sign = (target_delta > 0.0) ? 1.0 : -1.0;
+                    target_delta = sign * (max_achievable_delta - 1e-5);
+                }
+
+                const OptionType type = (target_delta > 0.0) ? OptionType::CALL : OptionType::PUT;
+
+                const f64 atm_vol = std::max(EvaluateLocalSpline(spot), 1e-4);
+
+                const f64 guess_K = FxOptionStrikeFromDelta(spot, rd, rf, atm_vol, T, type, target_delta);
+
+                auto objective = [&](f64 K) -> f64 {
+                    const f64 vol = std::max(EvaluateLocalSpline(K), 1e-4);
+
+                    return FxOptionDelta(spot, K, rd, rf, vol, T, type) - target_delta;
+                };
+
+                const f64 std_dev = atm_vol * std::sqrt(T);
+
+                const f64 left_bound = std::max(guess_K * std::exp(-5.0 * std_dev), 1e-4);
+
+                const f64 right_bound = guess_K * std::exp(5.0 * std_dev);
+
+                const f64 solved_K = FindRoot(objective, left_bound, right_bound, guess_K).value_or(guess_K);
+
+                const f64 target_vol = std::max(EvaluateLocalSpline(solved_K), 0.0);
+
+                delta_raw_vols[d_idx] = target_vol;
+            }
+
+            Interpolation::InitState(&delta_states_ptr[date_idx * deltas_size], pillar_deltas_,
+                                     delta_raw_vols)
                 .OrCrashProgram();
         }
 
         // Swap the new surface
         void* old_surface_ptr = surface_ptr_.exchange(buffer_ptr, std::memory_order_acq_rel);
+
         if (old_surface_ptr) {
             SurfaceHeader* old_header = static_cast<SurfaceHeader*>(old_surface_ptr);
+
             if (old_header->reference_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
                 cdr::AlignedFree(old_surface_ptr);
             }
         }
+
         return Ok();
     }
-
 
     Expect<SurfaceType, Error> ProvideSnapshot() const noexcept {
         void* data_ptr = surface_ptr_.load(std::memory_order_acquire);
@@ -380,6 +537,7 @@ private:
 
     std::map<DateType, std::map<StrikeType, VolatilityType>> pillars_;
     std::vector<StrikeType> strikes_;
+    std::vector<f64> pillar_deltas_;
     std::vector<f64> dates_;
     DateType today_;
 
@@ -387,4 +545,4 @@ private:
 
 };
 
-} // namespasce cdr
+} // namespace cdr
