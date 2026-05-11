@@ -11,6 +11,8 @@ enum class Error {
     ContractWithoutStrike,
     NegativeStrike,
     DateInAPast,
+    CouldNotConverge,
+    InvalidInput,
     NoMemory,
     NoData,
     ExtrapolationNotAllowed,
@@ -49,6 +51,14 @@ constexpr Failure<Error> ErrorNegativeStrike() {
 
 constexpr Failure<Error> ErrorDateInAPast() {
     return Failure<Error>(Error::DateInAPast);
+}
+
+constexpr Failure<Error> ErrorCouldNotConverge() {
+    return Failure<Error>(Error::CouldNotConverge);
+}
+
+constexpr Failure<Error> ErrorInvalidInput() {
+    return Failure<Error>(Error::InvalidInput);
 }
 
 constexpr Failure<Error> ErrorNoMemory() {
