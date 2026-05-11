@@ -78,7 +78,7 @@ void IrsContract::ApplyCurve(const Curve& curve) noexcept {
 
 /* IrsBuilder */
 
-[[nodiscard]] IrsContract IrsBuilder::Build(const HolidayStorage& hs, const JurisdictionType& jur, DateRollingRule rule) {
+[[nodiscard]] IrsContract IrsBuilder::Build(const HolidayStorage& hs, JurisdictionType jur, DateRollingRule rule) {
 
     CDR_CHECK(maturity_date_.has_value()) << "must be defined";
     CDR_CHECK(settlement_date_.has_value()) << "must be defined";
@@ -88,10 +88,9 @@ void IrsContract::ApplyCurve(const Curve& curve) noexcept {
     CDR_CHECK(paying_fix_.has_value()) << "must be defined";
     CDR_CHECK(fixed_freq_.has_value()) << "must be defined";
     CDR_CHECK(float_freq_.has_value()) << "must be defined";
-    CDR_CHECK(!jur.empty()) << "must be non-empty";
 
     static constexpr u32 kRandomReservationConstant = 10;
-    IrsContract result(fixed_rate_.value(), paying_fix_.value());
+    IrsContract result(jur, fixed_rate_.value(), paying_fix_.value());
 
     std::vector<IrsPaymentPeriod> sched;
     sched.reserve(kRandomReservationConstant);
@@ -159,7 +158,6 @@ void IrsContract::ApplyCurve(const Curve& curve) noexcept {
         sched[last].chrono_next_idx_ = curr;
     }
 
-    result.jurisdiction_ = jur;
     result.chrono_last_idx_ = last;
     result.notional_ = *notional_;
     result.payment_periods_ = std::move(sched);
@@ -184,7 +182,7 @@ void IrsBuilder::Reset() {
 
 /* IrsBuilderExperimental */
 
-[[nodiscard]] IrsContract IrsBuilderExperimental::Build(const HolidayStorage& hs, const JurisdictionType& jur, DateRollingRule rule) {
+[[nodiscard]] IrsContract IrsBuilderExperimental::Build(const HolidayStorage& hs, JurisdictionType jur, DateRollingRule rule) {
 
     CDR_CHECK(trade_date_.has_value()) << "must be defined";
     CDR_CHECK(start_shift_.has_value()) << "must be defined";
@@ -197,12 +195,11 @@ void IrsBuilder::Reset() {
     CDR_CHECK(adjustment_.has_value()) << "must be defined";
     CDR_CHECK(notional_.has_value()) << "must be defined";
     CDR_CHECK(paying_fix_.has_value()) << "must be defined";
-    CDR_CHECK(!jur.empty()) << "must be non-empty";
 
     CDR_CHECK(fixed_freq_->number > 0) << "must be positive";
     CDR_CHECK(float_freq_->number > 0) << "must be positive";
 
-    IrsContract result(fixed_rate_.value_or(Percent::Zero()), *paying_fix_);
+    IrsContract result(jur, fixed_rate_.value_or(Percent::Zero()), *paying_fix_);
     std::vector<IrsPaymentPeriod> sched;
 
     // --------- fixed leg ------------
@@ -271,7 +268,6 @@ void IrsBuilder::Reset() {
 
     // -------------------------------
 
-    result.jurisdiction_ = jur;
     result.payment_periods_ = std::move(sched);
     result.fixed_leg_ = result.payment_periods_.data();
     result.float_leg_ = result.payment_periods_.data() + float_begin;

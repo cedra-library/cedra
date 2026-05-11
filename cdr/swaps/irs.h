@@ -121,8 +121,9 @@ public:
 
 private:
 
-    IrsContract(Percent fixed_rate, bool paying_fix)
-        : fixed_rate_(fixed_rate)
+    IrsContract(JurisdictionType jurisdiction, Percent fixed_rate, bool paying_fix)
+        : jurisdiction_(jurisdiction)
+        , fixed_rate_(fixed_rate)
         , paying_fix_(paying_fix)
     {}
 
@@ -194,7 +195,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] IrsContract Build(const HolidayStorage& hs, const std::string& jur,
+    [[nodiscard]] IrsContract Build(const HolidayStorage& hs, JurisdictionType jur,
                                     DateRollingRule rule = DateRollingRule::kFollowing);
 
     void Reset();
@@ -273,7 +274,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] IrsContract Build(const HolidayStorage& hs, const std::string& jur,
+    [[nodiscard]] IrsContract Build(const HolidayStorage& hs, JurisdictionType jur,
                                     DateRollingRule rule = DateRollingRule::kFollowing);
 
     void Reset();
