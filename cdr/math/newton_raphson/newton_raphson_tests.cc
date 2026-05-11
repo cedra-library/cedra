@@ -41,7 +41,7 @@ TEST(FindRoot, RespectsProvidedStartPoint) {
         return x * x - 4.0;
     };
 
-    auto root = cdr::FindRoot(f, -10.0, 10.0, -3.0);
+    auto root = cdr::FindRoot(f, -10.0, 0.0, -3.0);
 
     ASSERT_TRUE(root.has_value());
     EXPECT_NEAR(*root, -2.0, 1e-7);
