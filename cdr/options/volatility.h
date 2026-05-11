@@ -259,7 +259,7 @@ public:
         constexpr u64 header_size = sizeof(SurfaceHeader);
         const u64 strikes_size_bytes = strikes_.size() * sizeof(f64);
         const u64 dates_size_bytes = dates_.size() * sizeof(f64);
-        const u64 matrix_size_bytes = dates_.size() * strikes_.size() * sizeof(f64);
+        const u64 matrix_size_bytes = dates_.size() * strikes_.size() * sizeof(StrikeVolatilityType);
 
         // Compute aligned offsets
         const u64 strikes_offset = internal::AlignToCacheLine(header_size);
