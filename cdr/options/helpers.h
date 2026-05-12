@@ -2,6 +2,7 @@
 
 #include <cdr/types/options.h>
 #include <cdr/math/distributions/normal.h>
+#include <cdr/math/newton_raphson/newton_raphson.h>
 
 namespace cdr {
 
@@ -68,8 +69,8 @@ struct OptionParams {
     f64 T,
     OptionType type
 ) noexcept {
-    f64 price = FxOptionPrice(S=S, K=K, rd=rd, rf=rf, sigma=sigma, T=T, type=type);
-    f64 delta = FxOptionDelta(S=S, K=K, rd=rd, rf=rf, sigma=sigma, T=T, type=type);
+    f64 price = FxOptionPrice(S, K, rd, rf, sigma, T, type);
+    f64 delta = FxOptionDelta(S, K, rd, rf, sigma, T, type);
     return Percent::FromFraction(delta * S / price);
 }
 
@@ -122,7 +123,7 @@ struct OptionParams {
     f64 T,
     [[maybe_unused]] OptionType type
 ) noexcept {
-    f64 gamma = FxOptionGamma(S=S, K=K, rd=rd, rf=rf, sigma=sigma, T=T, type=type);
+    f64 gamma = FxOptionGamma(S, K, rd, rf, sigma, T, type);
     return Percent::FromFraction(gamma * S * 0.01);
 }
 
@@ -150,7 +151,7 @@ struct OptionParams {
     f64 T,
     [[maybe_unused]] OptionType type
 ) noexcept {
-    f64 vega = FxOptionVega(S=S, K=K, rd=rd, rf=rf, sigma=sigma, T=T, type=type);
+    f64 vega = FxOptionVega(S, K, rd, rf, sigma, T, type);
     return Percent::FromFraction(vega * sigma * 0.1);
 }
 
@@ -192,6 +193,25 @@ struct OptionParams {
 
     f32 sgn = (type == OptionType::CALL) ? 1. : -1.;
     return sgn * T * K * df_d * NormalCDF(sgn * d2);
+}
+
+[[nodiscard]] f64 FxOptionSigmaFromPrice(
+    f64 S,
+    f64 K,
+    f64 rd,
+    f64 rf,
+    f64 T,
+    OptionType type,
+    f64 price
+) noexcept {
+    auto target = [=](f64 sigma) {
+        f64 npv = FxOptionPrice(S, K, rd, rf, sigma, T, type);
+        return npv - price;
+    };
+
+    f64 res = FindRoot(target, 1e-6, 5.0, std::nullopt)
+        .OrCrashProgram() << "Failed to find implied volatility";
+    return res;
 }
 
 }  // namespace cdr

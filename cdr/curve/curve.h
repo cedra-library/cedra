@@ -107,7 +107,8 @@ public:
             }
         } while ((right_df - left_df).Fraction() > precision);
         // TODO add check left_df > 0 ...
-        FindRoot(target, left_df.Fraction(), right_df.Fraction(), std::nullopt);
+        FindRoot(target, left_df.Fraction(), right_df.Fraction(), std::nullopt)
+            .OrCrashProgram() << "Failed to find root for contract adaptation";
     }
 
     void ApplyFXContract(const Curve& other, const ForwardContract& fwd) noexcept;
