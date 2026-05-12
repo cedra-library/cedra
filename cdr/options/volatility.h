@@ -484,7 +484,11 @@ public:
 
                 const f64 right_bound = guess_K * std::exp(5.0 * std_dev);
 
-                const f64 solved_K = FindRoot(objective, left_bound, right_bound, guess_K).value_or(guess_K);
+                const f64 solved_K = guess_K;
+                auto find_root = FindRoot(objective, left_bound, right_bound, guess_K);
+                if (find_root.Succeed()) {
+                    solved_K = find_root.Value();
+                }
 
                 const f64 target_vol = std::max(EvaluateLocalSpline(solved_K), 0.0);
 
