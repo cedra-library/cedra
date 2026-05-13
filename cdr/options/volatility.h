@@ -425,7 +425,7 @@ public:
                 row_raw_vols[strike_idx] = output_value;
             }
 
-            Interpolation::InitState(&states_ptr[date_idx * strikes_size], strikes_, row_raw_vols)
+            Interpolation::InitState(&states_ptr[date_idx * interp_state_aligned_size], strikes_, row_raw_vols)
                 .OrCrashProgram();
 
             // --- Precompute delta smile ---
@@ -501,7 +501,8 @@ public:
                 delta_raw_vols[d_idx] = target_vol;
             }
 
-            Interpolation::InitState(&delta_states_ptr[date_idx * deltas_size], pillar_deltas_, delta_raw_vols).OrCrashProgram();
+            Interpolation::InitState(&delta_states_ptr[date_idx * delta_interp_state_aligned_size], pillar_deltas_, delta_raw_vols)
+                .OrCrashProgram();
         }
 
         // Swap the new surface
