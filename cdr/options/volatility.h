@@ -425,7 +425,6 @@ public:
                 row_raw_vols[strike_idx] = output_value;
             }
 
-<<<<<<< HEAD
             Interpolation::InitState(&states_ptr[date_idx * interp_state_aligned_size], strikes_, row_raw_vols)
                 .OrCrashProgram();
 
@@ -506,39 +505,6 @@ public:
                 .OrCrashProgram();
 
             // --- Precompute delta smile ---
-            const DateType target_date = pillars_iter->first;
-
-            const f64 T = dates_[date_idx];
-            const u64 deltas_size = pillar_deltas_.size();
-
-            const f64 rd =
-                domestic_curve.Interpolated<Linear>(target_date, domestic_curve.Calendar(), domestic_curve.GetJurisdiction())
-                    .Fraction();
-
-            const f64 rf =
-                foreign_curve.Interpolated<Linear>(target_date, foreign_curve.Calendar(), foreign_curve.GetJurisdiction())
-                    .Fraction();
-
-            auto EvaluateLocalSpline = [&](f64 K) -> f64 {
-                if (strikes_size == 0) {
-                    return 0.0;
-                }
-
-                if (K <= strikes_.front()) {
-                    return Interpolation::Evaluate(&states_ptr[date_idx * strikes_size], strikes_, strikes_.front())
-                        .OrCrashProgram();
-                }
-
-                if (K >= strikes_.back()) {
-                    return Interpolation::Evaluate(&states_ptr[date_idx * strikes_size], strikes_, strikes_.back())
-                        .OrCrashProgram();
-                }
-
-                return Interpolation::Evaluate(&states_ptr[date_idx * strikes_size], strikes_, K).OrCrashProgram();
-            };
-
-            const f64 max_achievable_delta = std::exp(-rf * T);
-
             for (u64 d_idx = 0; d_idx < deltas_size; ++d_idx) {
                 f64 target_delta = pillar_deltas_[d_idx];
 
