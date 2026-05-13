@@ -20,6 +20,7 @@ enum class Error {
     StrikeExtrapolationNotAllowed,
     DeltaExtrapolationNotAllowed,
     CalibrationFailed,
+    RootNotFound,
     __NumberOfErrors,
 };
 
@@ -91,6 +92,10 @@ constexpr Failure<Error> ErrorCalibrationFailed() {
     return Failure<Error>(Error::CalibrationFailed);
 }
 
+constexpr Failure<Error> ErrorRootNotFound() {
+    return Failure<Error>(Error::RootNotFound);
+}
+
 [[nodiscard]] constexpr std::string_view ErrorAsStringView(const Error error) noexcept {
     switch (error) {
     case Error::ContractWithoutNPV:               return "Contract without NPV";
@@ -108,6 +113,7 @@ constexpr Failure<Error> ErrorCalibrationFailed() {
     case Error::StrikeExtrapolationNotAllowed:   return "Strike extrapolation is not allowed";
     case Error::DeltaExtrapolationNotAllowed:    return "Delta extrapolation is not allowed";
     case Error::CalibrationFailed:               return "Calibration failed";
+    case Error::RootNotFound:                    return "Root not found";
     case Error::__NumberOfErrors:                [[fallthrough]];
     default:                                     return "Unknown error";
     }

@@ -17,6 +17,8 @@ public:
         f64 nu;
         f64 F;  // Forward price
         f64 T;  // Time to maturity
+        f64 rd; // domestic curve
+        f64 rf; // foreign curve
     };
 
     using StrikeVolatilityType = SabrParameters;
