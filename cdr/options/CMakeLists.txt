@@ -23,6 +23,7 @@ cdr_cpp_library(
     cdr::base
     cdr::types
     cdr::math
+    Ceres::ceres
   PUBLIC
 )
 
@@ -45,6 +46,16 @@ cdr_cpp_test(
     "interpolation/cubic_spline_tests.cc"
   DEPS
     cdr::options
+    GTest::gtest_main
+)
+
+cdr_cpp_test(
+  NAME sabr_tests
+  SRCS
+    "interpolation/sabr_tests.cc"
+  DEPS
+    cdr::options
+    Ceres::ceres
     GTest::gtest_main
 )
 

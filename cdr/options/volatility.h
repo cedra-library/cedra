@@ -635,13 +635,13 @@ private:
 
 /// SABR specialization
 template<>
-class VolatilitySurface<SABRInterolator> final {
+class VolatilitySurface<SABRInterpolator> final {
 
 };
 
 
 template<>
-class VolatilitySurfaceProvider<SABRInterolator> final {
+class VolatilitySurfaceProvider<SABRInterpolator> final {
 public:
 
 
