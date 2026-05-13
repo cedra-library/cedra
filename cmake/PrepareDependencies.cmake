@@ -43,3 +43,17 @@ if (CDR_BUILD_BENCH)
 endif()
 
 add_subdirectory(third_party/boost)
+
+# CPMAddPackage(
+#     NAME Eigen3
+#     GIT_TAG 3.4.0
+#     GIT_REPOSITORY "https://gitlab.com/libeigen/eigen.git"
+# )
+
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+
+# 2. Отключаем специфичные для Eigen опции (на всякий случай)
+set(EIGEN_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(EIGEN_LEAVE_TEST_IN_ALL_TARGET OFF CACHE BOOL "" FORCE)
+add_subdirectory(third_party/eigen)
+add_subdirectory(third_party/ceres_solver)

@@ -14,6 +14,7 @@
 #include <map>
 #include <vector>
 #include <cstring>
+#include "cdr/options/interpolation/sabr.h"
 #include <cdr/options/interpolation/quadratic_spline.h>
 #include <cdr/options/interpolation/lerp.h>
 #include <cdr/options/interpolation/flat_forward.h>
@@ -628,6 +629,23 @@ private:
 
     std::atomic<void*> surface_ptr_;
 
+};
+
+
+
+/// SABR specialization
+template<>
+class VolatilitySurface<SABRInterolator> final {
+
+};
+
+
+template<>
+class VolatilitySurfaceProvider<SABRInterolator> final {
+public:
+
+
+private:
 };
 
 } // namespace cdr

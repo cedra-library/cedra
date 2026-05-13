@@ -10,13 +10,14 @@ cdr_cpp_library(
     "interpolation/quadratic_spline.h"
     "interpolation/lerp.h"
     "interpolation/flat_forward.h"
+    "interpolation/sabr.h"
   SRCS
     "contract.cc"
-    #"volatility.cc"
     "interpolation/cubic_spline.cc"
     "interpolation/quadratic_spline.cc"
     "interpolation/lerp.cc"
     "interpolation/flat_forward.cc"
+    "interpolation/sabr.cc"
   DEPS
     cdr::calendar
     cdr::base
