@@ -42,4 +42,31 @@ if (CDR_BUILD_BENCH)
 
 endif()
 
-add_subdirectory(third_party/boost)
+set(EIGEN_BUILD_PKGCONFIG OFF CACHE BOOL "" FORCE)
+set(EIGEN_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(EIGEN_LEAVE_TEST_IN_ALL_TARGET OFF CACHE BOOL "" FORCE)
+# Это предотвратит попытки Eigen собрать BLAS/LAPACK библиотеки
+set(EIGEN_BUILD_BLAS OFF CACHE BOOL "" FORCE)
+set(EIGEN_BUILD_LAPACK OFF CACHE BOOL "" FORCE)
+
+# --- Отключаем всё лишнее в Ceres ---
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+# Для Windows CI часто критично не собирать тесты самой библиотеки
+set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+
+# Подавляем использование внешних библиотек, которые могут искаться на Windows
+set(LAPACK OFF CACHE BOOL "" FORCE)
+set(SUITESPARSE OFF CACHE BOOL "" FORCE)
+set(CXSPARSE OFF CACHE BOOL "" FORCE)
+set(GFLAGS OFF CACHE BOOL "" FORCE)
+set(GLOG OFF CACHE BOOL "" FORCE) # Ceres будет использовать свой miniglog
+
+#set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+
+# 2. Отключаем специфичные для Eigen опции (на всякий случай)
+#set(EIGEN_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+#set(EIGEN_LEAVE_TEST_IN_ALL_TARGET OFF CACHE BOOL "" FORCE)
+add_subdirectory(third_party/eigen)
+add_subdirectory(third_party/ceres_solver)
