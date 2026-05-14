@@ -9,6 +9,7 @@
 #include <cmath>
 #include <concepts>
 #include <numeric>
+#include <ceres/jet.h>
 
 namespace cdr {
 
@@ -105,5 +106,59 @@ constexpr f64 NormalCDFInverseMoroAlgorithm(f64 u) noexcept {
     constexpr f64 inv_sqrt_2pi = 0.3989422804014327;
     return std::exp(-0.5 * x * x) * inv_sqrt_2pi;
 }
+
+
+template <typename T, int N>
+[[nodiscard]] inline ceres::Jet<T, N> NormalCDF(const ceres::Jet<T, N>& x) noexcept {
+    using std::erfc;
+
+    // CDF(x) = 0.5 * erfc(-x / sqrt(2))
+    const T inv_sqrt2 = T(0.7071067811865475);
+
+    return T(0.5) * erfc(-x * inv_sqrt2);
+}
+
+template <typename T, int N>
+[[nodiscard]] inline ceres::Jet<T, N> NormalPDF(const ceres::Jet<T, N>& x) noexcept {
+    using std::exp;
+
+    const T inv_sqrt_2pi = T(0.3989422804014327);
+
+    return exp(T(-0.5) * x * x) * inv_sqrt_2pi;
+}
+
+template <typename T, int N>
+[[nodiscard]] inline ceres::Jet<T, N> NormalCDFInverse(const ceres::Jet<T, N>& u) noexcept {
+    using std::log;
+
+    const T a[] = {T(2.50662823884), T(-18.61500062529), T(41.39119773534), T(-25.44106049637)};
+    const T b[] = {T(-8.4735109309), T(23.08336743743), T(-21.06224101826), T(3.13082909833)};
+    const T c[] = {T(0.337475482272615),    T(0.976169019091719),  T(0.160797971491821),
+                   T(0.0276438810333863),   T(0.0038405729373609), T(0.0003951896511919),
+                   T(3.21767881767818e-05), T(2.888167364e-07),    T(3.960315187e-07)};
+
+    ceres::Jet<T, N> x = u - T(0.5);
+    ceres::Jet<T, N> r;
+
+    if (std::abs(x.a) < 0.92) {
+        r = x * x;
+        r = x * (((a[3] * r + a[2]) * r + a[1]) * r + a[0]) /
+            ((((b[3] * r + b[2]) * r + b[1]) * r + b[0]) * r + T(1.0));
+        return r;
+    }
+
+    r = (x.a < 0) ? u : (T(1.0) - u);
+    r = log(-log(r));
+
+    r = c[0] + r * (c[1] + r * (c[2] + r * (c[3] + r + (c[4] + r * (c[5] + r * (c[6] + r * (c[7] + r * c[8])))))));
+
+    if (x.a < 0) {
+        r = -r;
+    }
+
+    return r;
+}
+
+
 
 }  // namespace cdr

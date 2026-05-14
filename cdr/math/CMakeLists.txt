@@ -7,6 +7,7 @@ cdr_cpp_library(
   DEPS
     cdr::base
     cdr::types
+    Ceres::ceres
   PUBLIC
 )
 

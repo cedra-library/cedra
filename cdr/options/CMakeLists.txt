@@ -3,6 +3,8 @@ cdr_cpp_library(
   HDRS
     "helpers.h"
     "contract.h"
+    "greeks.h"
+    "diffprog_pricing.h"
     "volatility.h"
     "internal/export.h"
     "interpolation/concept.h"
