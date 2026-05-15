@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cdr/types/options.h>
+#include <cdr/options/greeks.h>
 #include <cdr/math/distributions/normal.h>
 #include <cdr/math/newton_raphson/newton_raphson.h>
 
@@ -212,6 +213,45 @@ struct OptionParams {
     f64 res = FindRoot(target, 1e-6, 5.0, std::nullopt)
         .OrCrashProgram() << "Failed to find implied volatility";
     return res;
+}
+
+[[nodiscard]] inline Greeks ComputeAllGreeksInlinedAD(f64 S, f64 K, f64 rd, f64 rf, f64 sigma, f64 T,
+                                                              OptionType type) noexcept {
+    const f64 sqrtT = std::sqrt(T);
+    const f64 sigma_sqrtT = sigma * sqrtT;
+
+    const f64 log_S_K = std::log(S / K);
+    const f64 mu = rd - rf + 0.5 * sigma * sigma;
+    const f64 d1 = (log_S_K + mu * T) / sigma_sqrtT;
+    const f64 d2 = d1 - sigma_sqrtT;
+
+    const f64 nd1 = NormalCDF(d1);
+    const f64 nd2 = NormalCDF(d2);
+    const f64 pdf_d1 = NormalPDF(d1);
+
+    const f64 df_d = std::exp(-rd * T);
+    const f64 df_f = std::exp(-rf * T);
+
+    f64 price, delta, vega, rho;
+
+    if (type == OptionType::CALL) {
+        price = S * df_f * nd1 - K * df_d * nd2;
+        delta = df_f * nd1;
+        rho = T * K * df_d * nd2;
+    } else {
+        price = K * df_d * (1.0 - nd2) - S * df_f * (1.0 - nd1);
+        delta = df_f * (nd1 - 1.0);
+        rho = -T * K * df_d * (1.0 - nd2);
+    }
+
+    vega = df_f * pdf_d1 * S * sqrtT;
+
+    return Greeks{
+        .price=price,
+        .delta=delta,
+        .vega=vega,
+        .rho=rho
+    };
 }
 
 }  // namespace cdr
